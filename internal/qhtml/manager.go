@@ -29,6 +29,7 @@ type ManageSnapshot struct {
 	SourcePath           string            `json:"source_path,omitempty"`
 	StatePath            string            `json:"state_path"`
 	ReceiptPath          string            `json:"receipt_path,omitempty"`
+	LockPath             string            `json:"lock_path,omitempty"`
 	LaneDigest           string            `json:"lane_digest"`
 	PreviousLaneDigest   string            `json:"previous_lane_digest,omitempty"`
 	SourceDigest         string            `json:"source_digest,omitempty"`
@@ -38,6 +39,7 @@ type ManageSnapshot struct {
 	NeedsRenderRefresh   bool              `json:"needs_render_refresh"`
 	FileCount            int               `json:"file_count"`
 	DirCount             int               `json:"dir_count"`
+	SymlinkCount         int               `json:"symlink_count"`
 	ChangedReasons       []string          `json:"changed_reasons"`
 	ManagedBy            string            `json:"managed_by"`
 	Policy               string            `json:"policy"`
@@ -53,6 +55,7 @@ type managedState struct {
 	SourceDigest  string `json:"source_digest,omitempty"`
 	FileCount     int    `json:"file_count"`
 	DirCount      int    `json:"dir_count"`
+	SymlinkCount  int    `json:"symlink_count"`
 	UpdatedAt     string `json:"updated_at"`
 }
 
@@ -75,7 +78,13 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 	}
 	stateRoot := managedRoot(projectRoot, req.StateRoot)
 	statePath := managedStatePath(stateRoot, laneRoot, sourcePath)
-	laneDigest, fileCount, dirCount, ignored, err := digestTree(laneRoot, []string{stateRoot})
+	lockPath := managedLockPath(stateRoot, laneRoot, sourcePath)
+	releaseLock, err := acquireLock(lockPath)
+	if err != nil {
+		return ManageSnapshot{}, err
+	}
+	defer releaseLock()
+	laneDigest, fileCount, dirCount, symlinkCount, ignored, err := digestTree(laneRoot, []string{stateRoot})
 	if err != nil {
 		return ManageSnapshot{}, err
 	}
@@ -104,6 +113,7 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 		LaneRoot:             slashClean(laneRoot),
 		SourcePath:           slashClean(sourcePath),
 		StatePath:            slashClean(statePath),
+		LockPath:             slashClean(lockPath),
 		LaneDigest:           laneDigest,
 		PreviousLaneDigest:   previous.LaneDigest,
 		SourceDigest:         sourceDigest,
@@ -113,14 +123,16 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 		NeedsRenderRefresh:   laneChanged || sourceChanged,
 		FileCount:            fileCount,
 		DirCount:             dirCount,
+		SymlinkCount:         symlinkCount,
 		ChangedReasons:       reasons,
 		ManagedBy:            "go_digest_refresh",
 		Policy:               "folder_lane_and_source_digest_are_ssot; watcher_is_optimization_not_correctness",
 		ObservedAt:           req.ObservedAt.UTC().Format(time.RFC3339),
 		Details: map[string]string{
-			"project_root": projectRoot,
-			"state_model":  ".qhtml/managed deterministic state and receipts",
-			"ignored":      strings.Join(ignored, ","),
+			"project_root":   projectRoot,
+			"state_model":    ".qhtml/managed deterministic state and receipts",
+			"ignored":        strings.Join(ignored, ","),
+			"symlink_policy": "hash_link_target_do_not_follow",
 		},
 	}
 	if req.WriteEvidence {
@@ -132,6 +144,7 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 			SourceDigest:  sourceDigest,
 			FileCount:     fileCount,
 			DirCount:      dirCount,
+			SymlinkCount:  symlinkCount,
 			UpdatedAt:     snapshot.ObservedAt,
 		}
 		if err := writeJSON(statePath, state); err != nil {
@@ -146,19 +159,20 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 	return snapshot, nil
 }
 
-func digestTree(root string, ignoredRoots []string) (string, int, int, []string, error) {
+func digestTree(root string, ignoredRoots []string) (string, int, int, int, []string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
-		return "", 0, 0, nil, err
+		return "", 0, 0, 0, nil, err
 	}
 	if !info.IsDir() {
-		return "", 0, 0, nil, errors.New("qhtml lane root is not a directory")
+		return "", 0, 0, 0, nil, errors.New("qhtml lane root is not a directory")
 	}
 	ignore := normalizeIgnoredRoots(root, ignoredRoots)
 	var entries []string
 	var ignored []string
 	fileCount := 0
 	dirCount := 0
+	symlinkCount := 0
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -184,6 +198,15 @@ func digestTree(root string, ignoredRoots []string) (string, int, int, []string,
 			entries = append(entries, "dir\t"+rel)
 			return nil
 		}
+		if d.Type()&os.ModeSymlink != 0 {
+			target, linkErr := os.Readlink(path)
+			if linkErr != nil {
+				return linkErr
+			}
+			symlinkCount++
+			entries = append(entries, "symlink\t"+rel+"\t"+target)
+			return nil
+		}
 		digest, digestErr := digestFile(path)
 		if digestErr != nil {
 			return digestErr
@@ -193,11 +216,11 @@ func digestTree(root string, ignoredRoots []string) (string, int, int, []string,
 		return nil
 	})
 	if err != nil {
-		return "", 0, 0, ignored, err
+		return "", 0, 0, symlinkCount, ignored, err
 	}
 	sort.Strings(entries)
 	sort.Strings(ignored)
-	return sha256Hex([]byte(strings.Join(entries, "\n"))), fileCount, dirCount, ignored, nil
+	return sha256Hex([]byte(strings.Join(entries, "\n"))), fileCount, dirCount, symlinkCount, ignored, nil
 }
 
 func digestFile(path string) (string, error) {
@@ -225,6 +248,31 @@ func managedStatePath(root, laneRoot, sourcePath string) string {
 	}
 	digest := sha256Hex([]byte(filepath.ToSlash(filepath.Clean(key))))[:16]
 	return filepath.Join(root, digest, "state.json")
+}
+
+func managedLockPath(root, laneRoot, sourcePath string) string {
+	key := laneRoot
+	if sourcePath != "" {
+		key += "|" + sourcePath
+	}
+	digest := sha256Hex([]byte(filepath.ToSlash(filepath.Clean(key))))[:16]
+	return filepath.Join(root, digest, "refresh.lock")
+}
+
+func acquireLock(path string) (func(), error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, errors.New("qhtml refresh lock already held")
+		}
+		return nil, err
+	}
+	_, _ = f.WriteString(time.Now().UTC().Format(time.RFC3339Nano) + "\n")
+	_ = f.Close()
+	return func() { _ = os.Remove(path) }, nil
 }
 
 func readManagedState(path string, out *managedState) error {

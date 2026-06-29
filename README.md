@@ -79,6 +79,8 @@ Implemented:
 - JSON status and refresh CLI
 - receipt writing for refresh events
 - deterministic directory hashing
+- exclusive refresh lock
+- symlink target hashing without following links
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
@@ -95,14 +97,38 @@ Not complete:
 - State directory inside the lane: fixed by excluding `.qhtml` and `--state-root` from lane digest.
 - File deletion: covered by digest tests.
 - Atomic state writes: state and receipt JSON are written via temp file then rename.
+- Concurrent refresh: guarded by an exclusive lock file.
+- Symlink drift: symlinks are hashed by link target path and are not followed outside the lane.
 - Watcher loss: correctness does not depend on a long-running watcher; polling `refresh` is the source of truth.
 
 Remaining blind spots:
 
-- Concurrent refresh from multiple processes still needs a lock file.
-- Symlink policy is not finalized.
 - Large binary media folders need a future size budget and chunked hashing.
 - Browser/Vorq witness is still outside the standalone seed.
+
+## Potential Assessment
+
+QHTML has high product potential if it stays focused on one claim:
+
+> A UI artifact should have a folder-addressable source of truth, not only a generated HTML file.
+
+Strongest markets:
+
+- AI-generated UI source control
+- design handoff with receipts
+- visual QA and browser witness automation
+- NeuronFS or agent-runtime UI artifact lanes
+- cross-platform local-first site/app builders
+
+Current potential score from `qhtml status`: `82/100`.
+
+That is not a maturity score. It means the core product thesis is strong, while the implementation is still a seed. The next milestones are:
+
+1. Extract standalone `render-folder`.
+2. Add browser visual witness.
+3. Add Vorq-compatible render receipt.
+4. Add target/tombstone/rollback commands.
+5. Add media size budgets and chunked hashing.
 
 ## Product Rule
 

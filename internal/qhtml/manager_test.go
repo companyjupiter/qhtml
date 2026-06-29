@@ -3,6 +3,7 @@ package qhtml
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -140,6 +141,86 @@ func TestManageDeletionChangesLaneDigest(t *testing.T) {
 	}
 	if deleted.Status != "changed" || !deleted.LaneChanged || !deleted.NeedsRenderRefresh {
 		t.Fatalf("deletion was not detected: first=%#v deleted=%#v", first, deleted)
+	}
+}
+
+func TestManageSymlinkHashesTargetWithoutFollowing(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	outside := filepath.Join(projectRoot, "outside.txt")
+	if err := os.WriteFile(outside, []byte("outside-v1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(laneRoot, "02", "r0", "linked.txt")
+	if err := os.Symlink(outside, linkPath); err != nil {
+		t.Skipf("symlink unavailable on this platform or permission profile: %v", err)
+	}
+	first, err := Manage(ManageRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 29, 4, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.SymlinkCount != 1 {
+		t.Fatalf("expected one symlink, got %#v", first)
+	}
+	if err := os.WriteFile(outside, []byte("outside-v2"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Manage(ManageRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SourcePath:  sourcePath,
+		ObservedAt:  time.Date(2026, 6, 29, 4, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.LaneDigest != first.LaneDigest || second.NeedsRenderRefresh {
+		t.Fatalf("symlink target contents should not affect lane digest: first=%#v second=%#v", first, second)
+	}
+	if err := os.Remove(linkPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(projectRoot, "other.txt"), linkPath); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := Manage(ManageRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SourcePath:  sourcePath,
+		ObservedAt:  time.Date(2026, 6, 29, 4, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed.LaneChanged || !changed.NeedsRenderRefresh {
+		t.Fatalf("symlink target path change should affect digest: %#v", changed)
+	}
+}
+
+func TestManageLockBlocksConcurrentWriter(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	stateRoot := filepath.Join(projectRoot, ".qhtml", "managed")
+	lockPath := managedLockPath(managedRoot(projectRoot, stateRoot), laneRoot, sourcePath)
+	release, err := acquireLock(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	_, err = Manage(ManageRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		StateRoot:     stateRoot,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 29, 5, 0, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "lock already held") {
+		t.Fatalf("expected lock error, got %v", err)
 	}
 }
 
