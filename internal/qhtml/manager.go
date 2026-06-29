@@ -68,20 +68,23 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 		return ManageSnapshot{}, errors.New("qhtml lane root required")
 	}
 	laneRoot := absPath(projectRoot, req.LaneRoot)
-	laneDigest, fileCount, dirCount, err := digestTree(laneRoot)
-	if err != nil {
-		return ManageSnapshot{}, err
-	}
 	sourcePath := ""
 	sourceDigest := ""
 	if strings.TrimSpace(req.SourcePath) != "" {
 		sourcePath = absPath(projectRoot, req.SourcePath)
+	}
+	stateRoot := managedRoot(projectRoot, req.StateRoot)
+	statePath := managedStatePath(stateRoot, laneRoot, sourcePath)
+	laneDigest, fileCount, dirCount, ignored, err := digestTree(laneRoot, []string{stateRoot})
+	if err != nil {
+		return ManageSnapshot{}, err
+	}
+	if sourcePath != "" {
 		sourceDigest, err = digestFile(sourcePath)
 		if err != nil {
 			return ManageSnapshot{}, err
 		}
 	}
-	statePath := managedStatePath(projectRoot, req.StateRoot, laneRoot, sourcePath)
 	var previous managedState
 	_ = readManagedState(statePath, &previous)
 
@@ -117,6 +120,7 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 		Details: map[string]string{
 			"project_root": projectRoot,
 			"state_model":  ".qhtml/managed deterministic state and receipts",
+			"ignored":      strings.Join(ignored, ","),
 		},
 	}
 	if req.WriteEvidence {
@@ -142,20 +146,30 @@ func Manage(req ManageRequest) (ManageSnapshot, error) {
 	return snapshot, nil
 }
 
-func digestTree(root string) (string, int, int, error) {
+func digestTree(root string, ignoredRoots []string) (string, int, int, []string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
-		return "", 0, 0, err
+		return "", 0, 0, nil, err
 	}
 	if !info.IsDir() {
-		return "", 0, 0, errors.New("qhtml lane root is not a directory")
+		return "", 0, 0, nil, errors.New("qhtml lane root is not a directory")
 	}
+	ignore := normalizeIgnoredRoots(root, ignoredRoots)
 	var entries []string
+	var ignored []string
 	fileCount := 0
 	dirCount := 0
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if shouldIgnorePath(root, path, d, ignore) {
+			rel, _ := filepath.Rel(root, path)
+			ignored = append(ignored, filepath.ToSlash(rel))
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
 		if relErr != nil {
@@ -179,10 +193,11 @@ func digestTree(root string) (string, int, int, error) {
 		return nil
 	})
 	if err != nil {
-		return "", 0, 0, err
+		return "", 0, 0, ignored, err
 	}
 	sort.Strings(entries)
-	return sha256Hex([]byte(strings.Join(entries, "\n"))), fileCount, dirCount, nil
+	sort.Strings(ignored)
+	return sha256Hex([]byte(strings.Join(entries, "\n"))), fileCount, dirCount, ignored, nil
 }
 
 func digestFile(path string) (string, error) {
@@ -193,13 +208,17 @@ func digestFile(path string) (string, error) {
 	return sha256Hex(data), nil
 }
 
-func managedStatePath(projectRoot, stateRoot, laneRoot, sourcePath string) string {
-	root := stateRoot
+func managedRoot(projectRoot, stateRoot string) string {
+	root := strings.TrimSpace(stateRoot)
 	if strings.TrimSpace(root) == "" {
 		root = filepath.Join(projectRoot, ".qhtml", "managed")
 	} else {
 		root = absPath(projectRoot, root)
 	}
+	return root
+}
+
+func managedStatePath(root, laneRoot, sourcePath string) string {
 	key := laneRoot
 	if sourcePath != "" {
 		key += "|" + sourcePath
@@ -250,6 +269,45 @@ func absPath(projectRoot, path string) string {
 		return clean
 	}
 	return filepath.Join(projectRoot, clean)
+}
+
+func normalizeIgnoredRoots(laneRoot string, roots []string) map[string]bool {
+	ignored := map[string]bool{}
+	for _, root := range roots {
+		if strings.TrimSpace(root) == "" {
+			continue
+		}
+		rel, err := filepath.Rel(laneRoot, filepath.Clean(root))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		ignored[filepath.ToSlash(filepath.Clean(rel))] = true
+	}
+	return ignored
+}
+
+func shouldIgnorePath(root, path string, d os.DirEntry, ignoredRoots map[string]bool) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == "." {
+		return false
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	first := rel
+	if idx := strings.IndexByte(rel, '/'); idx >= 0 {
+		first = rel[:idx]
+	}
+	if first == ".qhtml" || first == ".git" || first == "dist" {
+		return true
+	}
+	if ignoredRoots[rel] {
+		return true
+	}
+	for ignored := range ignoredRoots {
+		if strings.HasPrefix(rel, ignored+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func slashClean(path string) string {

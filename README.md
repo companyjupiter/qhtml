@@ -50,6 +50,15 @@ State is stored under:
 .qhtml/managed/<lane-key>/receipts/*.qhtml_refresh.json
 ```
 
+The manager ignores its own runtime artifacts while hashing a lane:
+
+- `.qhtml/`
+- `.git/`
+- `dist/`
+- the configured `--state-root` if it is inside the lane
+
+This prevents the classic self-contamination failure where writing a state file causes every later refresh to report a false change.
+
 ## Why It Is Separate
 
 QHTML started inside NeuronFS, but it is a product boundary of its own:
@@ -80,6 +89,20 @@ Not complete:
 - Vorq render receipt
 - target/tombstone/rollback commands
 - bidirectional sync from export changes back to lane patch proposals
+
+## Blind Spots Already Simulated
+
+- State directory inside the lane: fixed by excluding `.qhtml` and `--state-root` from lane digest.
+- File deletion: covered by digest tests.
+- Atomic state writes: state and receipt JSON are written via temp file then rename.
+- Watcher loss: correctness does not depend on a long-running watcher; polling `refresh` is the source of truth.
+
+Remaining blind spots:
+
+- Concurrent refresh from multiple processes still needs a lock file.
+- Symlink policy is not finalized.
+- Large binary media folders need a future size budget and chunked hashing.
+- Browser/Vorq witness is still outside the standalone seed.
 
 ## Product Rule
 

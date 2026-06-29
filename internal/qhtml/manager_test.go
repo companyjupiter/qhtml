@@ -82,6 +82,67 @@ func TestStatusSurface(t *testing.T) {
 	}
 }
 
+func TestManageStateInsideLaneDoesNotSelfContaminateDigest(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	stateRoot := filepath.Join(laneRoot, ".qhtml", "managed")
+	first, err := Manage(ManageRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		StateRoot:     stateRoot,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 29, 2, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Manage(ManageRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SourcePath:  sourcePath,
+		StateRoot:   stateRoot,
+		ObservedAt:  time.Date(2026, 6, 29, 2, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Status != "current" || second.NeedsRenderRefresh {
+		t.Fatalf("managed state inside lane self-contaminated digest: first=%#v second=%#v", first, second)
+	}
+	if first.LaneDigest != second.LaneDigest {
+		t.Fatalf("lane digest drifted from managed state write: %s != %s", first.LaneDigest, second.LaneDigest)
+	}
+}
+
+func TestManageDeletionChangesLaneDigest(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	first, err := Manage(ManageRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 29, 3, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(laneRoot, "02", "r0", "c0.txt")); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := Manage(ManageRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SourcePath:  sourcePath,
+		ObservedAt:  time.Date(2026, 6, 29, 3, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted.Status != "changed" || !deleted.LaneChanged || !deleted.NeedsRenderRefresh {
+		t.Fatalf("deletion was not detected: first=%#v deleted=%#v", first, deleted)
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()
