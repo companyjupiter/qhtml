@@ -1,0 +1,5 @@
+.qhtml/
+dist/
+*.exe
+*.test
+coverage.out
