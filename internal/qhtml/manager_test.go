@@ -81,6 +81,12 @@ func TestStatusSurface(t *testing.T) {
 	if got.Percent <= 0 || got.Percent >= 100 {
 		t.Fatalf("standalone seed should be partial, got %d", got.Percent)
 	}
+	if len(got.ValueProposition) == 0 || !strings.Contains(got.ValueProposition[0], "full HTML scans") {
+		t.Fatalf("value proposition must expose fullscan reduction: %#v", got.ValueProposition)
+	}
+	if !hasProductItem(got.Implemented, "precision_targeting_surface") {
+		t.Fatalf("precision targeting surface missing: %#v", got.Implemented)
+	}
 }
 
 func TestManageStateInsideLaneDoesNotSelfContaminateDigest(t *testing.T) {
@@ -248,4 +254,13 @@ func setupManagedProject(t *testing.T) (string, string, string) {
 		t.Fatal(err)
 	}
 	return projectRoot, laneRoot, sourcePath
+}
+
+func hasProductItem(items []ProductItem, id string) bool {
+	for _, item := range items {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
 }

@@ -9,20 +9,21 @@ type ProductStatusRequest struct {
 }
 
 type ProductStatus struct {
-	SchemaVersion   string        `json:"schema_version"`
-	Status          string        `json:"status"`
-	ProductID       string        `json:"product_id"`
-	Name            string        `json:"name"`
-	Definition      string        `json:"definition"`
-	RuntimeCommands []string      `json:"runtime_commands"`
-	Implemented     []ProductItem `json:"implemented"`
-	Gaps            []ProductItem `json:"gaps"`
-	Potential       []ProductItem `json:"potential"`
-	PotentialScore  int           `json:"potential_score"`
-	NextMilestones  []string      `json:"next_milestones"`
-	Percent         int           `json:"percent"`
-	Policy          string        `json:"policy"`
-	ObservedAt      string        `json:"observed_at"`
+	SchemaVersion    string        `json:"schema_version"`
+	Status           string        `json:"status"`
+	ProductID        string        `json:"product_id"`
+	Name             string        `json:"name"`
+	Definition       string        `json:"definition"`
+	ValueProposition []string      `json:"value_proposition"`
+	RuntimeCommands  []string      `json:"runtime_commands"`
+	Implemented      []ProductItem `json:"implemented"`
+	Gaps             []ProductItem `json:"gaps"`
+	Potential        []ProductItem `json:"potential"`
+	PotentialScore   int           `json:"potential_score"`
+	NextMilestones   []string      `json:"next_milestones"`
+	Percent          int           `json:"percent"`
+	Policy           string        `json:"policy"`
+	ObservedAt       string        `json:"observed_at"`
 }
 
 type ProductItem struct {
@@ -42,6 +43,8 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "standalone_module", Status: "implemented", Reason: "no NeuronFS runtime dependency"},
 		{ID: "process_lock", Status: "implemented", Reason: "refresh writes are guarded by an exclusive lock file"},
 		{ID: "symlink_policy", Status: "implemented", Reason: "symlinks are hashed as link targets and are not followed"},
+		{ID: "html_fullscan_reduction", Status: "implemented", Reason: "refresh compares folder/source digests so callers avoid rescanning full HTML for unchanged artifacts"},
+		{ID: "precision_targeting_surface", Status: "seed", Reason: "folder lane paths expose stable cell/media addresses for future target/tombstone/rollback commands"},
 	}
 	gaps := []ProductItem{
 		{ID: "html_projection_renderer", Status: "missing", Reason: "standalone renderer is not yet extracted"},
@@ -52,8 +55,9 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "bidirectional_sync", Status: "missing", Reason: "export changes do not yet become lane patch proposals"},
 	}
 	potential := []ProductItem{
-		{ID: "ai_ui_source_control", Status: "high", Reason: "folder lane makes AI-generated UI auditable and regenerable"},
+		{ID: "ai_ui_source_control", Status: "high", Reason: "folder lane makes AI-generated UI auditable without repeated full HTML scans"},
 		{ID: "design_handoff", Status: "high", Reason: "render receipts and browser witness can become a concrete handoff contract"},
+		{ID: "precision_ui_targeting", Status: "high", Reason: "stable folder addresses can target exact cells, slots, media, and rollback points"},
 		{ID: "cross_platform_adapter", Status: "medium_high", Reason: "digest manager is already platform-neutral Go; render adapters remain"},
 		{ID: "neuronfs_embedding", Status: "high", Reason: "NeuronFS can use QHTML as a UI artifact lane without owning the product"},
 	}
@@ -67,7 +71,13 @@ func Status(req ProductStatusRequest) ProductStatus {
 		Status:        "standalone_seed",
 		ProductID:     "qhtml",
 		Name:          "QHTML",
-		Definition:    "QHTML is a folder-native render contract where generated HTML is disposable output and folder lane state is source truth.",
+		Definition:    "QHTML is a folder-native render contract that reduces repeated full HTML scans and enables precise UI targeting through folder lane addresses.",
+		ValueProposition: []string{
+			"reduce repeated full HTML scans by comparing lane/source digests first",
+			"target exact UI cells, media slots, rollback points, and future patch proposals by folder address",
+			"treat generated HTML as disposable projection, not source truth",
+			"make AI-generated UI artifacts auditable before render or promotion",
+		},
 		RuntimeCommands: []string{
 			"qhtml status",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",

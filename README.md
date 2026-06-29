@@ -1,6 +1,6 @@
 # QHTML
 
-QHTML is a folder-native render contract.
+QHTML is a folder-native render contract for reducing repeated full HTML scans and targeting exact UI parts by folder address.
 
 It does not treat `index.html` as source truth. The source is a managed folder lane:
 
@@ -14,6 +14,12 @@ opaque folder rune lane
 ```
 
 HTML is output cache. The folder is the address system. QHTML exists so UI artifacts can be edited, audited, regenerated, and handed off without trusting an active editor tab or a single generated HTML file.
+
+The core value is practical:
+
+- reduce repeated full HTML scans by checking lane/source digests first
+- target exact UI cells, media slots, rollback points, and future patch proposals by folder path
+- keep generated HTML disposable while preserving a stable source lane
 
 ## Install
 
@@ -76,6 +82,8 @@ NeuronFS can embed QHTML, but QHTML must be usable without NeuronFS.
 Implemented:
 
 - Go-native lane/source digest manager
+- HTML fullscan reduction through digest-first refresh
+- seed precision targeting surface through stable folder lane addresses
 - JSON status and refresh CLI
 - receipt writing for refresh events
 - deterministic directory hashing
@@ -115,6 +123,7 @@ QHTML has high product potential if it stays focused on one claim:
 Strongest markets:
 
 - AI-generated UI source control
+- precision UI targeting without full HTML rescans
 - design handoff with receipts
 - visual QA and browser witness automation
 - NeuronFS or agent-runtime UI artifact lanes
