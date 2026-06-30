@@ -46,6 +46,32 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "resolve-media":
+		fs := flag.NewFlagSet("resolve-media", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		slotRoot := fs.String("slot-root", "", "lane-relative media slot root; default 04")
+		outDir := fs.String("out-dir", "", "optional media export copy directory")
+		stateRoot := fs.String("state-root", "", "optional media state root; default .qhtml/media")
+		maxBytes := fs.Int64("max-bytes", 0, "per-asset max bytes; default 25MiB")
+		write := fs.Bool("write", false, "write media receipt and optional export copies")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		if *laneRoot == "" && fs.NArg() > 0 {
+			*laneRoot = fs.Arg(0)
+		}
+		result, err := qhtml.ResolveMedia(qhtml.MediaRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			SlotRoot:      *slotRoot,
+			OutDir:        *outDir,
+			StateRoot:     *stateRoot,
+			MaxBytes:      *maxBytes,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "refresh", "manage", "watch":
 		fs := flag.NewFlagSet("refresh", flag.ContinueOnError)
 		fs.SetOutput(os.Stderr)
@@ -325,6 +351,7 @@ func usage() {
 	_, _ = fmt.Fprint(os.Stderr, `Usage:
   qhtml status
   qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
+  qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
   qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]

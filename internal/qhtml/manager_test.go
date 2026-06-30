@@ -81,14 +81,17 @@ func TestStatusSurface(t *testing.T) {
 	if got.SchemaVersion != ProductStatusSchemaVersion || got.ProductID != "qhtml" {
 		t.Fatalf("unexpected status: %#v", got)
 	}
-	if got.Percent <= 0 || got.Percent >= 100 {
-		t.Fatalf("standalone seed should be partial, got %d", got.Percent)
+	if got.Percent != 100 {
+		t.Fatalf("standalone core surface should be complete, got %d", got.Percent)
 	}
 	if len(got.ValueProposition) == 0 || !strings.Contains(got.ValueProposition[0], "full HTML scans") {
 		t.Fatalf("value proposition must expose fullscan reduction: %#v", got.ValueProposition)
 	}
 	if !hasProductItem(got.Implemented, "precision_targeting_surface") {
 		t.Fatalf("precision targeting surface missing: %#v", got.Implemented)
+	}
+	if !hasProductItem(got.Implemented, "media_slot_resolver") {
+		t.Fatalf("media slot resolver missing: %#v", got.Implemented)
 	}
 }
 
@@ -312,6 +315,78 @@ func TestRenderFolderRejectsExportInsideLaneOutsideDist(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "dist/") {
 		t.Fatalf("unsafe lane export should be rejected, got %v", err)
+	}
+}
+
+func TestResolveMediaWritesReceiptAndCopiesExport(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	assetPath := filepath.Join(laneRoot, "04", "hero", "image.png")
+	if err := os.MkdirAll(filepath.Dir(assetPath), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(assetPath, []byte{0x89, 'P', 'N', 'G', 1, 2, 3}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(laneRoot, "04", "hero", "notes.txt"), []byte("not media"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(laneRoot, "dist", "media")
+	got, err := ResolveMedia(MediaRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		OutDir:        outDir,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 7, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "media_resolved" || got.AssetCount != 1 || got.MediaDigest == "" || got.ReceiptPath == "" {
+		t.Fatalf("unexpected media receipt: %#v", got)
+	}
+	if got.Assets[0].SlotPath != "04/hero" || got.Assets[0].AssetPath != "04/hero/image.png" || got.Assets[0].MimeHint != "image/png" {
+		t.Fatalf("unexpected media asset: %#v", got.Assets[0])
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "04", "hero", "image.png")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestResolveMediaRejectsUnsafeAndOversizeInputs(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	assetPath := filepath.Join(laneRoot, "04", "hero.png")
+	if err := os.WriteFile(assetPath, []byte{1, 2, 3, 4}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ResolveMedia(MediaRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SlotRoot:    "../04",
+		ObservedAt:  time.Date(2026, 6, 30, 7, 1, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "inside lane root") {
+		t.Fatalf("escaping slot root should be rejected, got %v", err)
+	}
+	_, err = ResolveMedia(MediaRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		OutDir:      filepath.Join(laneRoot, "media-export"),
+		ObservedAt:  time.Date(2026, 6, 30, 7, 2, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "dist/") {
+		t.Fatalf("unsafe media out-dir should be rejected, got %v", err)
+	}
+	_, err = ResolveMedia(MediaRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		MaxBytes:    2,
+		ObservedAt:  time.Date(2026, 6, 30, 7, 3, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "exceeds max bytes") {
+		t.Fatalf("oversize media should be rejected, got %v", err)
 	}
 }
 

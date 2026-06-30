@@ -54,10 +54,9 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "signed_browser_runner_proof", Status: "implemented", Reason: "runner-proof binds runner identity, version, report digest, and signature claim; seal can include it"},
 		{ID: "runner_public_key_verification", Status: "implemented", Reason: "verify-runner-proof validates ed25519 runner signatures and emits verification receipts"},
 		{ID: "html_projection_renderer", Status: "implemented", Reason: "render-folder creates disposable HTML projections from folder lanes and writes render receipts"},
+		{ID: "media_slot_resolver", Status: "implemented", Reason: "resolve-media seals lane-relative media slots, asset digests, size budget, and optional export copies"},
 	}
-	gaps := []ProductItem{
-		{ID: "media_slot_resolver", Status: "missing", Reason: "media slot language is specified but not implemented in standalone"},
-	}
+	gaps := []ProductItem{}
 	potential := []ProductItem{
 		{ID: "ai_ui_source_control", Status: "high", Reason: "folder lane makes AI-generated UI auditable without repeated full HTML scans"},
 		{ID: "design_handoff", Status: "high", Reason: "render receipts and browser witness can become a concrete handoff contract"},
@@ -85,6 +84,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		RuntimeCommands: []string{
 			"qhtml status",
 			"qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]",
+			"qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",
 			"qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]",
 			"qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--write]",
@@ -102,7 +102,6 @@ func Status(req ProductStatusRequest) ProductStatus {
 		Potential:      potential,
 		PotentialScore: 82,
 		NextMilestones: []string{
-			"add standalone media slot resolver",
 			"add cross-platform adapter conformance matrix",
 		},
 		Percent:    percent,
