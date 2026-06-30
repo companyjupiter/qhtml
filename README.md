@@ -39,6 +39,8 @@ go run ./cmd/qhtml status
 ```powershell
 qhtml status
 qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
+qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
+qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -54,6 +56,8 @@ State is stored under:
 ```text
 .qhtml/managed/<lane-key>/state.json
 .qhtml/managed/<lane-key>/receipts/*.qhtml_refresh.json
+.qhtml/witnesses/<render-key>/*.qhtml_witness.json
+.qhtml/visual_witnesses/<visual-key>/*.qhtml_visual_witness.json
 ```
 
 The manager ignores its own runtime artifacts while hashing a lane:
@@ -89,13 +93,15 @@ Implemented:
 - deterministic directory hashing
 - exclusive refresh lock
 - symlink target hashing without following links
+- render export witness receipts binding lane/source/export digests
+- browser visual artifact witness receipts for nonblank export, zero console errors, and optional screenshot digest
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
 
 - HTML projection renderer
 - media slot resolver
-- browser visual witness
+- automated responsive/overflow browser layout witness
 - Vorq render receipt
 - target/tombstone/rollback commands
 - bidirectional sync from export changes back to lane patch proposals
@@ -108,11 +114,14 @@ Not complete:
 - Concurrent refresh: guarded by an exclusive lock file.
 - Symlink drift: symlinks are hashed by link target path and are not followed outside the lane.
 - Watcher loss: correctness does not depend on a long-running watcher; polling `refresh` is the source of truth.
+- Blank export: `visual-witness` rejects HTML without visible text.
+- Console errors: `visual-witness` rejects console reports containing error entries.
+- Empty screenshot: `visual-witness` rejects zero-byte screenshot artifacts.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Browser/Vorq witness is still outside the standalone seed.
+- Automated responsive/overflow layout checks and Vorq receipts are still outside the standalone seed.
 
 ## Potential Assessment
 
@@ -134,7 +143,7 @@ Current potential score from `qhtml status`: `82/100`.
 That is not a maturity score. It means the core product thesis is strong, while the implementation is still a seed. The next milestones are:
 
 1. Extract standalone `render-folder`.
-2. Add browser visual witness.
+2. Add automated browser layout witness.
 3. Add Vorq-compatible render receipt.
 4. Add target/tombstone/rollback commands.
 5. Add media size budgets and chunked hashing.

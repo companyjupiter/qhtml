@@ -44,13 +44,15 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "process_lock", Status: "implemented", Reason: "refresh writes are guarded by an exclusive lock file"},
 		{ID: "symlink_policy", Status: "implemented", Reason: "symlinks are hashed as link targets and are not followed"},
 		{ID: "html_fullscan_reduction", Status: "implemented", Reason: "refresh compares folder/source digests so callers avoid rescanning full HTML for unchanged artifacts"},
+		{ID: "render_export_witness", Status: "implemented", Reason: "witness binds lane/source/export digests into .qhtml/witnesses receipts"},
+		{ID: "browser_visual_artifact_witness", Status: "implemented", Reason: "visual-witness seals nonblank export, zero console errors, and optional screenshot digest"},
 		{ID: "precision_targeting_surface", Status: "seed", Reason: "folder lane paths expose stable cell/media addresses for future target/tombstone/rollback commands"},
 	}
 	gaps := []ProductItem{
 		{ID: "html_projection_renderer", Status: "missing", Reason: "standalone renderer is not yet extracted"},
 		{ID: "media_slot_resolver", Status: "missing", Reason: "media slot language is specified but not implemented in standalone"},
 		{ID: "vorq_render_witness", Status: "missing", Reason: "render receipt seal is not implemented"},
-		{ID: "browser_visual_witness", Status: "missing", Reason: "no screenshot/console/responsive witness yet"},
+		{ID: "browser_layout_witness", Status: "missing", Reason: "automated overflow and responsive viewport checks are not implemented"},
 		{ID: "targeting_tombstone", Status: "missing", Reason: "cell/slot target and rollback commands are not implemented"},
 		{ID: "bidirectional_sync", Status: "missing", Reason: "export changes do not yet become lane patch proposals"},
 	}
@@ -81,6 +83,8 @@ func Status(req ProductStatusRequest) ProductStatus {
 		RuntimeCommands: []string{
 			"qhtml status",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",
+			"qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]",
+			"qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--write]",
 		},
 		Implemented:    implemented,
 		Gaps:           gaps,
@@ -88,7 +92,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		PotentialScore: 82,
 		NextMilestones: []string{
 			"extract standalone render-folder",
-			"add browser visual witness",
+			"add automated browser layout witness",
 			"add Vorq-compatible render receipt",
 			"add target/tombstone/rollback commands",
 		},

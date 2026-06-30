@@ -44,6 +44,53 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "witness", "render-witness":
+		fs := flag.NewFlagSet("witness", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		sourcePath := fs.String("source", "", "optional original/source file")
+		exportPath := fs.String("export", "", "rendered/exported HTML file")
+		stateRoot := fs.String("state-root", "", "optional witness state root; default .qhtml/witnesses")
+		write := fs.Bool("write", false, "write witness receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		if *laneRoot == "" && fs.NArg() > 0 {
+			*laneRoot = fs.Arg(0)
+		}
+		result, err := qhtml.Witness(qhtml.WitnessRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			SourcePath:    *sourcePath,
+			ExportPath:    *exportPath,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
+	case "visual-witness":
+		fs := flag.NewFlagSet("visual-witness", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		exportPath := fs.String("export", "", "rendered/exported HTML file")
+		consoleReport := fs.String("console-report", "", "optional browser console report JSON/text")
+		screenshot := fs.String("screenshot", "", "optional browser screenshot file")
+		viewport := fs.String("viewport", "", "optional viewport label")
+		stateRoot := fs.String("state-root", "", "optional visual witness state root; default .qhtml/visual_witnesses")
+		write := fs.Bool("write", false, "write visual witness receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.VisualWitness(qhtml.VisualWitnessRequest{
+			ProjectRoot:       *projectRoot,
+			ExportPath:        *exportPath,
+			ConsoleReportPath: *consoleReport,
+			ScreenshotPath:    *screenshot,
+			Viewport:          *viewport,
+			StateRoot:         *stateRoot,
+			WriteEvidence:     *write,
+		})
+		return encode(result, err)
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -72,9 +119,11 @@ func usage() {
 	_, _ = fmt.Fprint(os.Stderr, `Usage:
   qhtml status
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
+  qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
+  qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.
-  --state-root <root>   Managed state root. Defaults to .qhtml/managed.
+  --state-root <root>   State root. Defaults to command-specific .qhtml folders.
 `)
 }

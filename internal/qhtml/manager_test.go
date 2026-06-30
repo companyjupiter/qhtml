@@ -230,6 +230,100 @@ func TestManageLockBlocksConcurrentWriter(t *testing.T) {
 	}
 }
 
+func TestWitnessWritesRenderReceipt(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>rendered</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Witness(WitnessRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		ExportPath:    exportPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 1, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "render_witness" || got.RenderInputDigest == "" || got.ExportDigest == "" {
+		t.Fatalf("unexpected witness: %#v", got)
+	}
+	if _, err := os.Stat(got.WitnessPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWitnessRejectsMissingExport(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	_, err := Witness(WitnessRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		SourcePath:  sourcePath,
+		ObservedAt:  time.Date(2026, 6, 30, 1, 1, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatalf("missing export should be rejected")
+	}
+}
+
+func TestVisualWitnessWritesReceipt(t *testing.T) {
+	projectRoot := t.TempDir()
+	exportPath := filepath.Join(projectRoot, "export.html")
+	consolePath := filepath.Join(projectRoot, "console.json")
+	screenshotPath := filepath.Join(projectRoot, "screen.png")
+	if err := os.WriteFile(exportPath, []byte("<main>Visible content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(consolePath, []byte(`[{"level":"info","text":"ok"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(screenshotPath, []byte{0x89, 'P', 'N', 'G', 1}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := VisualWitness(VisualWitnessRequest{
+		ProjectRoot:       projectRoot,
+		ExportPath:        exportPath,
+		ConsoleReportPath: consolePath,
+		ScreenshotPath:    screenshotPath,
+		Viewport:          "desktop",
+		WriteEvidence:     true,
+		ObservedAt:        time.Date(2026, 6, 30, 1, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "visual_witness" || !got.NonBlank || got.ConsoleErrors != 0 || got.ScreenshotBytes == 0 {
+		t.Fatalf("unexpected visual witness: %#v", got)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVisualWitnessRejectsBlankExportAndConsoleErrors(t *testing.T) {
+	projectRoot := t.TempDir()
+	blankPath := filepath.Join(projectRoot, "blank.html")
+	if err := os.WriteFile(blankPath, []byte("<html><script>1</script></html>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VisualWitness(VisualWitnessRequest{ProjectRoot: projectRoot, ExportPath: blankPath}); err == nil {
+		t.Fatalf("blank export should be rejected")
+	}
+	exportPath := filepath.Join(projectRoot, "export.html")
+	consolePath := filepath.Join(projectRoot, "console.json")
+	if err := os.WriteFile(exportPath, []byte("<main>Visible content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(consolePath, []byte(`[{"level":"error","text":"boom"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VisualWitness(VisualWitnessRequest{ProjectRoot: projectRoot, ExportPath: exportPath, ConsoleReportPath: consolePath}); err == nil {
+		t.Fatalf("console errors should be rejected")
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()
