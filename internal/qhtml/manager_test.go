@@ -455,6 +455,78 @@ func TestTargetRejectsEscapingLaneRoot(t *testing.T) {
 	}
 }
 
+func TestImportProposalWritesReceiptWithoutMutatingLane(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	targetPath := filepath.Join(laneRoot, "02", "r0", "c0.txt")
+	before, err := digestFile(targetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>Edited export content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ImportProposal(ImportProposalRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		ExportPath:    exportPath,
+		TargetPath:    "02/r0/c0.txt",
+		Kind:          "cell",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 3, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "import_proposal" || got.ExportDigest == "" || got.LaneDigest == "" || got.TargetDigest == "" || got.ProposalDigest == "" {
+		t.Fatalf("unexpected import proposal: %#v", got)
+	}
+	if got.PatchAction != "proposal_only" {
+		t.Fatalf("import proposal must not mutate lane directly: %#v", got)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	after, err := digestFile(targetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatalf("import proposal mutated lane target: %s != %s", before, after)
+	}
+}
+
+func TestImportProposalRejectsBlankExportAndEscapingTarget(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	blankPath := filepath.Join(projectRoot, "blank.html")
+	if err := os.WriteFile(blankPath, []byte("<html><script>1</script></html>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ImportProposal(ImportProposalRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ExportPath:  blankPath,
+		ObservedAt:  time.Date(2026, 6, 30, 3, 1, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "blank export") {
+		t.Fatalf("blank export should be rejected, got %v", err)
+	}
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>Edited export content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = ImportProposal(ImportProposalRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ExportPath:  exportPath,
+		TargetPath:  "../source.html",
+		ObservedAt:  time.Date(2026, 6, 30, 3, 2, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "inside lane root") {
+		t.Fatalf("escaping import target should be rejected, got %v", err)
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()

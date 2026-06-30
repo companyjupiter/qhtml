@@ -49,12 +49,12 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "browser_layout_witness", Status: "implemented", Reason: "layout-witness seals viewport nonblank, console, and overflow evidence from an external browser runner"},
 		{ID: "precision_targeting_surface", Status: "implemented", Reason: "target command resolves lane-relative cell/media addresses and seals target digests"},
 		{ID: "targeting_tombstone", Status: "implemented", Reason: "target/tombstone/rollback commands create receipt-first target, tombstone, and rollback proposals"},
+		{ID: "bidirectional_sync", Status: "implemented", Reason: "import-proposal turns export changes into lane patch proposal receipts without overwriting source lanes"},
 	}
 	gaps := []ProductItem{
 		{ID: "html_projection_renderer", Status: "missing", Reason: "standalone renderer is not yet extracted"},
 		{ID: "media_slot_resolver", Status: "missing", Reason: "media slot language is specified but not implemented in standalone"},
 		{ID: "vorq_render_witness", Status: "missing", Reason: "render receipt seal is not implemented"},
-		{ID: "bidirectional_sync", Status: "missing", Reason: "export changes do not yet become lane patch proposals"},
 	}
 	potential := []ProductItem{
 		{ID: "ai_ui_source_control", Status: "high", Reason: "folder lane makes AI-generated UI auditable without repeated full HTML scans"},
@@ -89,6 +89,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 			"qhtml target --lane-root <lane_root> --path <lane_relative_target> [--write]",
 			"qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]",
 			"qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--write]",
+			"qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--write]",
 		},
 		Implemented:    implemented,
 		Gaps:           gaps,
@@ -97,7 +98,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		NextMilestones: []string{
 			"extract standalone render-folder",
 			"add Vorq-compatible render receipt",
-			"add bidirectional export-to-lane patch proposal importer",
+			"add signed browser runner proof",
 		},
 		Percent:    percent,
 		Policy:     "folder_lane_is_source_truth; html_is_projection; go_digest_refresh_is_correctness_layer",

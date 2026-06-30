@@ -45,6 +45,7 @@ qhtml layout-witness --export <rendered.html> --report <layout-report.json> [--w
 qhtml target --lane-root <lane_root> --path <lane_relative_target> [--kind cell|media|style|event] [--write]
 qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]
 qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
+qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -66,6 +67,7 @@ State is stored under:
 .qhtml/targets/<target-key>/targets/*.qhtml_target.json
 .qhtml/targets/<target-key>/tombstones/*.qhtml_tombstone.json
 .qhtml/targets/<target-key>/rollbacks/*.qhtml_rollback.json
+.qhtml/import_proposals/<proposal-key>/*.qhtml_import_proposal.json
 ```
 
 The manager ignores its own runtime artifacts while hashing a lane:
@@ -105,6 +107,7 @@ Implemented:
 - browser visual artifact witness receipts for nonblank export, zero console errors, and optional screenshot digest
 - browser layout witness receipts for viewport nonblank, console, and overflow evidence
 - target/tombstone/rollback receipts for lane-relative cell/media/style/event addresses
+- import proposal receipts that turn export changes into lane patch proposals without overwriting source folders
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
@@ -112,7 +115,6 @@ Not complete:
 - HTML projection renderer
 - media slot resolver
 - Vorq render receipt
-- bidirectional sync from export changes back to lane patch proposals
 
 ## Blind Spots Already Simulated
 
@@ -128,11 +130,13 @@ Not complete:
 - Layout report drift: `layout-witness` rejects blank viewports, console errors, overflow, and invalid viewport dimensions.
 - Target escape: `target` rejects lane-relative paths that escape the lane root.
 - Destructive targeting: `tombstone` and `rollback` write receipts/proposals first and do not mutate the lane without an external promotion gate.
+- Import mutation: `import-proposal` writes a proposal receipt and leaves the lane target digest unchanged.
+- Import escape: `import-proposal` rejects target paths that escape the lane root.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Vorq receipts and export-to-lane import proposals are still outside the standalone seed.
+- Vorq receipts, signed browser runner proof, and media resolver are still outside the standalone seed.
 
 ## Potential Assessment
 
@@ -156,7 +160,7 @@ That is not a maturity score. It means the core product thesis is strong, while 
 1. Extract standalone `render-folder`.
 2. Add automated browser layout witness.
 3. Add Vorq-compatible render receipt.
-4. Add bidirectional export-to-lane patch proposal importer.
+4. Add signed browser runner proof.
 5. Add media size budgets and chunked hashing.
 
 ## Product Rule

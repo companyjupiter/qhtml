@@ -179,6 +179,31 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "import-proposal":
+		fs := flag.NewFlagSet("import-proposal", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		exportPath := fs.String("export", "", "rendered/exported HTML file")
+		targetPath := fs.String("path", "", "optional lane-relative target path")
+		kind := fs.String("kind", "", "target kind; default cell when --path is used")
+		sourceReceipt := fs.String("source-receipt", "", "optional source witness/target receipt path")
+		stateRoot := fs.String("state-root", "", "optional import proposal state root; default .qhtml/import_proposals")
+		write := fs.Bool("write", false, "write import proposal receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.ImportProposal(qhtml.ImportProposalRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			ExportPath:    *exportPath,
+			TargetPath:    *targetPath,
+			Kind:          *kind,
+			SourceReceipt: *sourceReceipt,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -213,6 +238,7 @@ func usage() {
   qhtml target --lane-root <lane_root> --path <lane_relative_target> [--kind cell|media|style|event] [--write]
   qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]
   qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
+  qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.
