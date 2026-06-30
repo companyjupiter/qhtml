@@ -22,24 +22,25 @@ type RunnerProofRequest struct {
 }
 
 type RunnerProofReceipt struct {
-	SchemaVersion string            `json:"schema_version"`
-	Status        string            `json:"status"`
-	ProductID     string            `json:"product_id"`
-	ProjectRoot   string            `json:"project_root"`
-	ReportPath    string            `json:"report_path"`
-	StateRoot     string            `json:"state_root"`
-	ReceiptPath   string            `json:"receipt_path,omitempty"`
-	RunnerID      string            `json:"runner_id"`
-	RunnerVersion string            `json:"runner_version"`
-	ReportDigest  string            `json:"report_digest"`
-	Signature     string            `json:"signature"`
-	ProofDigest   string            `json:"proof_digest"`
-	Checks        []string          `json:"checks"`
-	NegativeCases []string          `json:"negative_cases"`
-	ManagedBy     string            `json:"managed_by"`
-	Policy        string            `json:"policy"`
-	ObservedAt    string            `json:"observed_at"`
-	Details       map[string]string `json:"details,omitempty"`
+	SchemaVersion    string            `json:"schema_version"`
+	Status           string            `json:"status"`
+	ProductID        string            `json:"product_id"`
+	ProjectRoot      string            `json:"project_root"`
+	ReportPath       string            `json:"report_path"`
+	StateRoot        string            `json:"state_root"`
+	ReceiptPath      string            `json:"receipt_path,omitempty"`
+	RunnerID         string            `json:"runner_id"`
+	RunnerVersion    string            `json:"runner_version"`
+	ReportDigest     string            `json:"report_digest"`
+	SignaturePayload string            `json:"signature_payload"`
+	Signature        string            `json:"signature"`
+	ProofDigest      string            `json:"proof_digest"`
+	Checks           []string          `json:"checks"`
+	NegativeCases    []string          `json:"negative_cases"`
+	ManagedBy        string            `json:"managed_by"`
+	Policy           string            `json:"policy"`
+	ObservedAt       string            `json:"observed_at"`
+	Details          map[string]string `json:"details,omitempty"`
 }
 
 func RunnerProof(req RunnerProofRequest) (RunnerProofReceipt, error) {
@@ -77,26 +78,22 @@ func RunnerProof(req RunnerProofRequest) (RunnerProofReceipt, error) {
 	if err != nil {
 		return RunnerProofReceipt{}, err
 	}
-	proofDigest := sha256Hex([]byte(strings.Join([]string{
-		RunnerProofSchemaVersion,
-		runnerID,
-		runnerVersion,
-		reportDigest,
-		signature,
-	}, "\n")))
+	signaturePayload := runnerProofSignaturePayload(runnerID, runnerVersion, reportDigest)
+	proofDigest := sha256Hex([]byte(signaturePayload + "\n" + signature))
 	stateRoot := runnerProofRoot(projectRoot, req.StateRoot)
 	receipt := RunnerProofReceipt{
-		SchemaVersion: RunnerProofSchemaVersion,
-		Status:        "runner_proof",
-		ProductID:     "qhtml",
-		ProjectRoot:   slashClean(projectRoot),
-		ReportPath:    slashClean(reportPath),
-		StateRoot:     slashClean(stateRoot),
-		RunnerID:      runnerID,
-		RunnerVersion: runnerVersion,
-		ReportDigest:  reportDigest,
-		Signature:     signature,
-		ProofDigest:   proofDigest,
+		SchemaVersion:    RunnerProofSchemaVersion,
+		Status:           "runner_proof",
+		ProductID:        "qhtml",
+		ProjectRoot:      slashClean(projectRoot),
+		ReportPath:       slashClean(reportPath),
+		StateRoot:        slashClean(stateRoot),
+		RunnerID:         runnerID,
+		RunnerVersion:    runnerVersion,
+		ReportDigest:     reportDigest,
+		SignaturePayload: signaturePayload,
+		Signature:        signature,
+		ProofDigest:      proofDigest,
 		Checks: []string{
 			"runner_id_required",
 			"runner_version_required",
@@ -132,4 +129,13 @@ func runnerProofRoot(projectRoot, stateRoot string) string {
 		return absPath(projectRoot, stateRoot)
 	}
 	return filepath.Join(projectRoot, ".qhtml", "runner_proofs")
+}
+
+func runnerProofSignaturePayload(runnerID, runnerVersion, reportDigest string) string {
+	return strings.Join([]string{
+		RunnerProofSchemaVersion,
+		strings.TrimSpace(runnerID),
+		strings.TrimSpace(runnerVersion),
+		strings.TrimSpace(reportDigest),
+	}, "\n")
 }

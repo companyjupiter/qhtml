@@ -52,6 +52,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "bidirectional_sync", Status: "implemented", Reason: "import-proposal turns export changes into lane patch proposal receipts without overwriting source lanes"},
 		{ID: "vorq_render_witness", Status: "implemented", Reason: "seal combines witness/import/layout/visual receipts into a final promotion receipt"},
 		{ID: "signed_browser_runner_proof", Status: "implemented", Reason: "runner-proof binds runner identity, version, report digest, and signature claim; seal can include it"},
+		{ID: "runner_public_key_verification", Status: "implemented", Reason: "verify-runner-proof validates ed25519 runner signatures and emits verification receipts"},
 	}
 	gaps := []ProductItem{
 		{ID: "html_projection_renderer", Status: "missing", Reason: "standalone renderer is not yet extracted"},
@@ -92,7 +93,8 @@ func Status(req ProductStatusRequest) ProductStatus {
 			"qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--write]",
 			"qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--write]",
 			"qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]",
-			"qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--runner-proof <proof_receipt>] [--write]",
+			"qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]",
+			"qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]",
 		},
 		Implemented:    implemented,
 		Gaps:           gaps,
@@ -101,7 +103,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		NextMilestones: []string{
 			"extract standalone render-folder",
 			"add standalone media slot resolver",
-			"add cryptographic public-key verification for runner signatures",
+			"add cross-platform adapter conformance matrix",
 		},
 		Percent:    percent,
 		Policy:     "folder_lane_is_source_truth; html_is_projection; go_digest_refresh_is_correctness_layer",

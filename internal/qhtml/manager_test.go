@@ -1,6 +1,9 @@
 package qhtml
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -647,6 +650,124 @@ func TestRunnerProofWritesReceiptAndRejectsShortSignature(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "at least 16") {
 		t.Fatalf("short signature should be rejected, got %v", err)
+	}
+}
+
+func TestVerifyRunnerProofWritesReceiptAndSealBindsVerification(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	exportPath := filepath.Join(projectRoot, "export.html")
+	reportPath := filepath.Join(projectRoot, "runner-report.json")
+	if err := os.WriteFile(exportPath, []byte("<main>Verified runner export</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(reportPath, []byte(`{"runner":"playwright","ok":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportDigest, err := digestFile(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := runnerProofSignaturePayload("playwright-local", "1.0.0", reportDigest)
+	signature := ed25519.Sign(privateKey, []byte(payload))
+	proof, err := RunnerProof(RunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-local",
+		RunnerVersion: "1.0.0",
+		Signature:     base64.StdEncoding.EncodeToString(signature),
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 5, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := VerifyRunnerProof(VerifyRunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ProofPath:     proof.ReceiptPath,
+		PublicKey:     base64.StdEncoding.EncodeToString(publicKey),
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 5, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.Status != "runner_proof_verified" || !verified.Verified || verified.PublicKeyDigest == "" {
+		t.Fatalf("unexpected runner proof verification: %#v", verified)
+	}
+	if _, err := os.Stat(verified.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	witness, err := Witness(WitnessRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		ExportPath:    exportPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 5, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seal, err := Seal(SealRequest{
+		ProjectRoot:            projectRoot,
+		WitnessPath:            witness.WitnessPath,
+		RunnerProofPath:        proof.ReceiptPath,
+		RunnerVerificationPath: verified.ReceiptPath,
+		WriteEvidence:          true,
+		ObservedAt:             time.Date(2026, 6, 30, 5, 3, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seal.InputDigests["runner_verification"] == "" {
+		t.Fatalf("seal did not bind runner verification: %#v", seal)
+	}
+}
+
+func TestVerifyRunnerProofRejectsBadSignature(t *testing.T) {
+	projectRoot := t.TempDir()
+	reportPath := filepath.Join(projectRoot, "runner-report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"runner":"playwright","ok":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	publicKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportDigest, err := digestFile(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := runnerProofSignaturePayload("playwright-local", "1.0.0", reportDigest)
+	signature := ed25519.Sign(privateKey, []byte(payload))
+	proof, err := RunnerProof(RunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-local",
+		RunnerVersion: "1.0.0",
+		Signature:     base64.StdEncoding.EncodeToString(signature),
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 5, 4, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = VerifyRunnerProof(VerifyRunnerProofRequest{
+		ProjectRoot: projectRoot,
+		ProofPath:   proof.ReceiptPath,
+		PublicKey:   base64.StdEncoding.EncodeToString(publicKey),
+		ObservedAt:  time.Date(2026, 6, 30, 5, 5, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "verification failed") {
+		t.Fatalf("bad signature should be rejected, got %v", err)
 	}
 }
 

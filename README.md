@@ -47,7 +47,8 @@ qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason 
 qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
 qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
 qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]
-qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--write]
+qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]
+qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -71,6 +72,7 @@ State is stored under:
 .qhtml/targets/<target-key>/rollbacks/*.qhtml_rollback.json
 .qhtml/import_proposals/<proposal-key>/*.qhtml_import_proposal.json
 .qhtml/runner_proofs/<proof-key>/*.qhtml_runner_proof.json
+.qhtml/runner_verifications/<verification-key>/*.qhtml_runner_proof_verification.json
 .qhtml/seals/<seal-key>/*.qhtml_seal.json
 ```
 
@@ -114,6 +116,7 @@ Implemented:
 - import proposal receipts that turn export changes into lane patch proposals without overwriting source folders
 - Vorq-compatible seal receipts that bind witness/import/layout/visual receipts for promotion
 - signed browser runner proof receipts that bind runner identity, version, report digest, and signature claim
+- Ed25519 public-key verification receipts for runner proof signatures
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
@@ -139,11 +142,12 @@ Not complete:
 - Import escape: `import-proposal` rejects target paths that escape the lane root.
 - Seal integrity: `seal` rejects missing render witness receipts and wrong receipt schemas.
 - Runner proof integrity: `runner-proof` rejects missing runner identity/version, empty reports, and short signatures.
+- Runner proof verification: `verify-runner-proof` rejects bad public keys, wrong proof schemas, and invalid signatures.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Media resolver and public-key signature verification are still outside the standalone seed.
+- Media resolver and a first-class renderer are still outside the standalone seed.
 
 ## Potential Assessment
 
@@ -166,7 +170,7 @@ That is not a maturity score. It means the core product thesis is strong, while 
 
 1. Extract standalone `render-folder`.
 2. Add automated browser layout witness.
-3. Add public-key verification for runner signatures.
+3. Add standalone render-folder.
 4. Add media size budgets and chunked hashing.
 5. Add media size budgets and chunked hashing.
 

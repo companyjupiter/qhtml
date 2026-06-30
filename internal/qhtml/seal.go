@@ -13,15 +13,16 @@ import (
 const SealSchemaVersion = "qhtml.vorq_seal.v1"
 
 type SealRequest struct {
-	ProjectRoot        string
-	WitnessPath        string
-	ImportProposalPath string
-	VisualWitnessPath  string
-	LayoutWitnessPath  string
-	RunnerProofPath    string
-	StateRoot          string
-	WriteEvidence      bool
-	ObservedAt         time.Time
+	ProjectRoot            string
+	WitnessPath            string
+	ImportProposalPath     string
+	VisualWitnessPath      string
+	LayoutWitnessPath      string
+	RunnerProofPath        string
+	RunnerVerificationPath string
+	StateRoot              string
+	WriteEvidence          bool
+	ObservedAt             time.Time
 }
 
 type SealReceipt struct {
@@ -129,6 +130,7 @@ func sealInputs(projectRoot string, req SealRequest) (map[string]string, error) 
 		{"visual_witness", req.VisualWitnessPath, VisualWitnessSchemaVersion, "visual_witness"},
 		{"layout_witness", req.LayoutWitnessPath, LayoutWitnessSchemaVersion, "layout_witness"},
 		{"runner_proof", req.RunnerProofPath, RunnerProofSchemaVersion, "runner_proof"},
+		{"runner_verification", req.RunnerVerificationPath, RunnerProofVerificationSchemaVersion, "runner_proof_verified"},
 	}
 	for _, item := range optional {
 		if strings.TrimSpace(item.path) == "" {

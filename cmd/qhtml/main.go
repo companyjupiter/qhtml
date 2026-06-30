@@ -213,20 +213,22 @@ func run(args []string) int {
 		visualWitnessPath := fs.String("visual-witness", "", "optional visual witness receipt path")
 		layoutWitnessPath := fs.String("layout-witness", "", "optional layout witness receipt path")
 		runnerProofPath := fs.String("runner-proof", "", "optional signed runner proof receipt path")
+		runnerVerificationPath := fs.String("runner-verification", "", "optional runner proof verification receipt path")
 		stateRoot := fs.String("state-root", "", "optional seal state root; default .qhtml/seals")
 		write := fs.Bool("write", false, "write seal receipt")
 		if err := fs.Parse(args); err != nil {
 			return 2
 		}
 		result, err := qhtml.Seal(qhtml.SealRequest{
-			ProjectRoot:        *projectRoot,
-			WitnessPath:        *witnessPath,
-			ImportProposalPath: *importProposalPath,
-			VisualWitnessPath:  *visualWitnessPath,
-			LayoutWitnessPath:  *layoutWitnessPath,
-			RunnerProofPath:    *runnerProofPath,
-			StateRoot:          *stateRoot,
-			WriteEvidence:      *write,
+			ProjectRoot:            *projectRoot,
+			WitnessPath:            *witnessPath,
+			ImportProposalPath:     *importProposalPath,
+			VisualWitnessPath:      *visualWitnessPath,
+			LayoutWitnessPath:      *layoutWitnessPath,
+			RunnerProofPath:        *runnerProofPath,
+			RunnerVerificationPath: *runnerVerificationPath,
+			StateRoot:              *stateRoot,
+			WriteEvidence:          *write,
 		})
 		return encode(result, err)
 	case "runner-proof":
@@ -248,6 +250,25 @@ func run(args []string) int {
 			RunnerID:      *runnerID,
 			RunnerVersion: *runnerVersion,
 			Signature:     *signature,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
+	case "verify-runner-proof":
+		fs := flag.NewFlagSet("verify-runner-proof", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		proofPath := fs.String("proof", "", "runner proof receipt path")
+		publicKey := fs.String("public-key", "", "ed25519 public key in base64 or hex")
+		stateRoot := fs.String("state-root", "", "optional verification state root; default .qhtml/runner_verifications")
+		write := fs.Bool("write", false, "write runner proof verification receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.VerifyRunnerProof(qhtml.VerifyRunnerProofRequest{
+			ProjectRoot:   *projectRoot,
+			ProofPath:     *proofPath,
+			PublicKey:     *publicKey,
 			StateRoot:     *stateRoot,
 			WriteEvidence: *write,
 		})
@@ -288,7 +309,8 @@ func usage() {
   qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
   qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
   qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]
-  qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--write]
+  qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]
+  qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.
