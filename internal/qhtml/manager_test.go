@@ -383,6 +383,78 @@ func TestLayoutWitnessRejectsBadViewportReports(t *testing.T) {
 	}
 }
 
+func TestTargetTombstoneAndRollbackWriteReceipts(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	targetPath := "02/r0/c0.txt"
+	target, err := Target(TargetRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		TargetPath:    targetPath,
+		Kind:          "cell",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 2, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.Status != "target" || target.TargetPath != targetPath || target.Digest == "" {
+		t.Fatalf("unexpected target receipt: %#v", target)
+	}
+	if _, err := os.Stat(target.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	tombstone, err := Tombstone(TombstoneRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		TargetPath:    targetPath,
+		Kind:          "cell",
+		Reason:        "duplicate cell",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 2, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tombstone.Status != "tombstone_proposal" || tombstone.TargetDigest != target.Digest {
+		t.Fatalf("unexpected tombstone receipt: %#v", tombstone)
+	}
+	if _, err := os.Stat(tombstone.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := Rollback(RollbackRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		TargetPath:    targetPath,
+		Kind:          "cell",
+		ToDigest:      target.Digest,
+		SourceReceipt: tombstone.ReceiptPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 2, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rollback.Status != "rollback_proposal" || rollback.CurrentDigest != target.Digest || rollback.ToDigest != target.Digest {
+		t.Fatalf("unexpected rollback receipt: %#v", rollback)
+	}
+	if _, err := os.Stat(rollback.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTargetRejectsEscapingLaneRoot(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	_, err := Target(TargetRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		TargetPath:  "../source.html",
+		ObservedAt:  time.Date(2026, 6, 30, 2, 3, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "inside lane root") {
+		t.Fatalf("escaping target should be rejected, got %v", err)
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()

@@ -110,6 +110,75 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "target":
+		fs := flag.NewFlagSet("target", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		targetPath := fs.String("path", "", "lane-relative target path")
+		kind := fs.String("kind", "", "target kind; default cell")
+		stateRoot := fs.String("state-root", "", "optional target state root; default .qhtml/targets")
+		write := fs.Bool("write", false, "write target receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.Target(qhtml.TargetRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			TargetPath:    *targetPath,
+			Kind:          *kind,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
+	case "tombstone":
+		fs := flag.NewFlagSet("tombstone", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		targetPath := fs.String("path", "", "lane-relative target path")
+		kind := fs.String("kind", "", "target kind; default cell")
+		reason := fs.String("reason", "", "tombstone reason")
+		stateRoot := fs.String("state-root", "", "optional target state root; default .qhtml/targets")
+		write := fs.Bool("write", false, "write tombstone receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.Tombstone(qhtml.TombstoneRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			TargetPath:    *targetPath,
+			Kind:          *kind,
+			Reason:        *reason,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
+	case "rollback":
+		fs := flag.NewFlagSet("rollback", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		targetPath := fs.String("path", "", "lane-relative target path")
+		kind := fs.String("kind", "", "target kind; default cell")
+		toDigest := fs.String("to-digest", "", "target digest to roll back to")
+		sourceReceipt := fs.String("source-receipt", "", "optional source receipt path")
+		stateRoot := fs.String("state-root", "", "optional target state root; default .qhtml/targets")
+		write := fs.Bool("write", false, "write rollback proposal receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.Rollback(qhtml.RollbackRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			TargetPath:    *targetPath,
+			Kind:          *kind,
+			ToDigest:      *toDigest,
+			SourceReceipt: *sourceReceipt,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -141,6 +210,9 @@ func usage() {
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
   qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
   qhtml layout-witness --export <rendered.html> --report <layout-report.json> [--write]
+  qhtml target --lane-root <lane_root> --path <lane_relative_target> [--kind cell|media|style|event] [--write]
+  qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]
+  qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.
