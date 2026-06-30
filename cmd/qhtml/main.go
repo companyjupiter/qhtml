@@ -72,6 +72,26 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "adapter-conformance":
+		fs := flag.NewFlagSet("adapter-conformance", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		stateRoot := fs.String("state-root", "", "optional adapter conformance state root; default .qhtml/adapter_conformance")
+		write := fs.Bool("write", false, "write adapter conformance receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		if *laneRoot == "" && fs.NArg() > 0 {
+			*laneRoot = fs.Arg(0)
+		}
+		result, err := qhtml.AdapterConformance(qhtml.AdapterConformanceRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "refresh", "manage", "watch":
 		fs := flag.NewFlagSet("refresh", flag.ContinueOnError)
 		fs.SetOutput(os.Stderr)
@@ -352,6 +372,7 @@ func usage() {
   qhtml status
   qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
   qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]
+  qhtml adapter-conformance --lane-root <lane_root> [--write]
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
   qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]

@@ -390,6 +390,43 @@ func TestResolveMediaRejectsUnsafeAndOversizeInputs(t *testing.T) {
 	}
 }
 
+func TestAdapterConformanceWritesReceipt(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	got, err := AdapterConformance(AdapterConformanceRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 8, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "adapter_conformant" || got.FailCount != 0 || got.PassCount == 0 || got.MatrixDigest == "" || got.ReceiptPath == "" {
+		t.Fatalf("unexpected adapter conformance receipt: %#v", got)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAdapterConformanceRejectsNonportableLane(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	if err := os.WriteFile(filepath.Join(laneRoot, "CON.txt"), []byte("reserved"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := AdapterConformance(AdapterConformanceRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ObservedAt:  time.Date(2026, 6, 30, 8, 1, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "adapter conformance failed") {
+		t.Fatalf("nonportable lane should fail, got receipt=%#v err=%v", got, err)
+	}
+	if got.Status != "adapter_nonconformant" || got.FailCount == 0 {
+		t.Fatalf("expected nonconformant receipt, got %#v", got)
+	}
+}
+
 func TestWitnessRejectsMissingExport(t *testing.T) {
 	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
 	_, err := Witness(WitnessRequest{

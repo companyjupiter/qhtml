@@ -55,13 +55,14 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "runner_public_key_verification", Status: "implemented", Reason: "verify-runner-proof validates ed25519 runner signatures and emits verification receipts"},
 		{ID: "html_projection_renderer", Status: "implemented", Reason: "render-folder creates disposable HTML projections from folder lanes and writes render receipts"},
 		{ID: "media_slot_resolver", Status: "implemented", Reason: "resolve-media seals lane-relative media slots, asset digests, size budget, and optional export copies"},
+		{ID: "adapter_conformance_matrix", Status: "implemented", Reason: "adapter-conformance emits portable path, Windows, POSIX, and browser OPFS lane checks"},
 	}
 	gaps := []ProductItem{}
 	potential := []ProductItem{
 		{ID: "ai_ui_source_control", Status: "high", Reason: "folder lane makes AI-generated UI auditable without repeated full HTML scans"},
 		{ID: "design_handoff", Status: "high", Reason: "render receipts and browser witness can become a concrete handoff contract"},
 		{ID: "precision_ui_targeting", Status: "high", Reason: "stable folder addresses can target exact cells, slots, media, and rollback points"},
-		{ID: "cross_platform_adapter", Status: "medium_high", Reason: "digest manager is already platform-neutral Go; render adapters remain"},
+		{ID: "cross_platform_adapter", Status: "high", Reason: "adapter conformance receipts make path portability explicit before platform-specific runners"},
 		{ID: "neuronfs_embedding", Status: "high", Reason: "NeuronFS can use QHTML as a UI artifact lane without owning the product"},
 	}
 	total := len(implemented) + len(gaps)
@@ -85,6 +86,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 			"qhtml status",
 			"qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]",
 			"qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]",
+			"qhtml adapter-conformance --lane-root <lane_root> [--write]",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",
 			"qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]",
 			"qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--write]",
@@ -102,7 +104,8 @@ func Status(req ProductStatusRequest) ProductStatus {
 		Potential:      potential,
 		PotentialScore: 82,
 		NextMilestones: []string{
-			"add cross-platform adapter conformance matrix",
+			"add platform-specific browser OPFS runner",
+			"add chunked hashing for very large media sets",
 		},
 		Percent:    percent,
 		Policy:     "folder_lane_is_source_truth; html_is_projection; go_digest_refresh_is_correctness_layer",

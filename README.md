@@ -40,6 +40,7 @@ go run ./cmd/qhtml status
 qhtml status
 qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
 qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]
+qhtml adapter-conformance --lane-root <lane_root> [--write]
 qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
 qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
 qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
@@ -68,6 +69,7 @@ State is stored under:
 .qhtml/managed/<lane-key>/receipts/*.qhtml_refresh.json
 .qhtml/renders/<render-key>/*.qhtml_render_folder.json
 .qhtml/media/<media-key>/*.qhtml_media.json
+.qhtml/adapter_conformance/<matrix-key>/*.qhtml_adapter_conformance.json
 .qhtml/witnesses/<render-key>/*.qhtml_witness.json
 .qhtml/visual_witnesses/<visual-key>/*.qhtml_visual_witness.json
 .qhtml/layout_witnesses/<layout-key>/*.qhtml_layout_witness.json
@@ -108,6 +110,7 @@ Implemented:
 - Go-native lane/source digest manager
 - standalone `render-folder` HTML projection renderer
 - standalone media slot resolver with digest and size-budget receipts
+- adapter conformance matrix receipts for portable, Windows, POSIX, and browser OPFS path assumptions
 - HTML fullscan reduction through digest-first refresh
 - seed precision targeting surface through stable folder lane addresses
 - JSON status and refresh CLI
@@ -127,7 +130,7 @@ Implemented:
 
 Not complete:
 
-- cross-platform adapter conformance matrix
+- platform-specific browser OPFS runner
 
 ## Blind Spots Already Simulated
 
@@ -150,6 +153,7 @@ Not complete:
 - Runner proof verification: `verify-runner-proof` rejects bad public keys, wrong proof schemas, and invalid signatures.
 - Render projection safety: `render-folder` escapes lane file content, writes receipts, and rejects exports inside the lane unless they are under `dist/`.
 - Media slot safety: `resolve-media` rejects slot-root escapes, rejects export copies inside the lane unless under `dist/`, rejects oversized assets, rejects media symlinks, and ignores non-media files.
+- Adapter safety: `adapter-conformance` detects nonportable path characters, case-insensitive collisions, Windows reserved segments, and records POSIX/browser OPFS portability assumptions.
 
 Remaining blind spots:
 
@@ -174,7 +178,7 @@ Current potential score from `qhtml status`: `82/100`.
 
 That is not a maturity score. It means the core product thesis is strong, while the implementation is still a seed. The next milestones are:
 
-1. Add adapter conformance matrix.
+1. Add platform-specific browser OPFS runner.
 2. Add chunked hashing for very large media sets.
 
 ## Product Rule
