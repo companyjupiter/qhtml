@@ -50,8 +50,9 @@ qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason 
 qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
 qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
 qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]
+qhtml opfs-proof --report <opfs_report.json> --runner-id <id> --runner-version <version> [--write]
 qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]
-qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]
+qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--opfs-proof <opfs_receipt>] [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -79,6 +80,7 @@ State is stored under:
 .qhtml/import_proposals/<proposal-key>/*.qhtml_import_proposal.json
 .qhtml/runner_proofs/<proof-key>/*.qhtml_runner_proof.json
 .qhtml/runner_verifications/<verification-key>/*.qhtml_runner_proof_verification.json
+.qhtml/opfs_proofs/<proof-key>/*.qhtml_opfs_proof.json
 .qhtml/seals/<seal-key>/*.qhtml_seal.json
 ```
 
@@ -126,11 +128,12 @@ Implemented:
 - Vorq-compatible seal receipts that bind witness/import/layout/visual receipts for promotion
 - signed browser runner proof receipts that bind runner identity, version, report digest, and signature claim
 - Ed25519 public-key verification receipts for runner proof signatures
+- browser OPFS runner proof receipts for quota, file-handle, path, and write/read/delete evidence
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
 
-- platform-specific browser OPFS runner
+- very-large-media chunked hashing
 
 ## Blind Spots Already Simulated
 
@@ -154,6 +157,7 @@ Not complete:
 - Render projection safety: `render-folder` escapes lane file content, writes receipts, and rejects exports inside the lane unless they are under `dist/`.
 - Media slot safety: `resolve-media` rejects slot-root escapes, rejects export copies inside the lane unless under `dist/`, rejects oversized assets, rejects media symlinks, and ignores non-media files.
 - Adapter safety: `adapter-conformance` detects nonportable path characters, case-insensitive collisions, Windows reserved segments, and records POSIX/browser OPFS portability assumptions.
+- OPFS proof safety: `opfs-proof` rejects unavailable OPFS, nonpositive quota, missing file handles, failed write/read/delete, failed path roundtrip, non-relative paths, and console errors.
 
 Remaining blind spots:
 
@@ -178,8 +182,7 @@ Current potential score from `qhtml status`: `82/100`.
 
 That is not a maturity score. It means the core product thesis is strong, while the implementation is still a seed. The next milestones are:
 
-1. Add platform-specific browser OPFS runner.
-2. Add chunked hashing for very large media sets.
+1. Add chunked hashing for very large media sets.
 
 ## Product Rule
 

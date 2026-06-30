@@ -940,6 +940,75 @@ func TestVerifyRunnerProofRejectsBadSignature(t *testing.T) {
 	}
 }
 
+func TestOPFSProofWritesReceiptAndSealBindsIt(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>OPFS export</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(projectRoot, "opfs-report.json")
+	report := `{"opfs_available":true,"quota_bytes":1048576,"file_handle":true,"write_read_delete":true,"path_roundtrip":true,"relative_paths":true,"console_errors":0,"browser":"chromium","origin":"http://localhost"}`
+	if err := os.WriteFile(reportPath, []byte(report), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	proof, err := OPFSProof(OPFSProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-opfs",
+		RunnerVersion: "1.0.0",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 9, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proof.Status != "opfs_proof" || proof.ProofDigest == "" || proof.ReportDigest == "" || proof.ReceiptPath == "" {
+		t.Fatalf("unexpected OPFS proof: %#v", proof)
+	}
+	witness, err := Witness(WitnessRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		ExportPath:    exportPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 9, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seal, err := Seal(SealRequest{
+		ProjectRoot:   projectRoot,
+		WitnessPath:   witness.WitnessPath,
+		OPFSProofPath: proof.ReceiptPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 9, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seal.InputDigests["opfs_proof"] == "" {
+		t.Fatalf("seal did not bind OPFS proof: %#v", seal)
+	}
+}
+
+func TestOPFSProofRejectsBadReport(t *testing.T) {
+	projectRoot := t.TempDir()
+	reportPath := filepath.Join(projectRoot, "opfs-report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"opfs_available":false,"quota_bytes":0,"file_handle":false,"write_read_delete":false,"path_roundtrip":false,"relative_paths":false,"console_errors":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OPFSProof(OPFSProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-opfs",
+		RunnerVersion: "1.0.0",
+		ObservedAt:    time.Date(2026, 6, 30, 9, 3, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "unavailable OPFS") {
+		t.Fatalf("bad OPFS report should be rejected, got %v", err)
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()

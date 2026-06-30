@@ -284,6 +284,7 @@ func run(args []string) int {
 		layoutWitnessPath := fs.String("layout-witness", "", "optional layout witness receipt path")
 		runnerProofPath := fs.String("runner-proof", "", "optional signed runner proof receipt path")
 		runnerVerificationPath := fs.String("runner-verification", "", "optional runner proof verification receipt path")
+		opfsProofPath := fs.String("opfs-proof", "", "optional browser OPFS proof receipt path")
 		stateRoot := fs.String("state-root", "", "optional seal state root; default .qhtml/seals")
 		write := fs.Bool("write", false, "write seal receipt")
 		if err := fs.Parse(args); err != nil {
@@ -297,6 +298,7 @@ func run(args []string) int {
 			LayoutWitnessPath:      *layoutWitnessPath,
 			RunnerProofPath:        *runnerProofPath,
 			RunnerVerificationPath: *runnerVerificationPath,
+			OPFSProofPath:          *opfsProofPath,
 			StateRoot:              *stateRoot,
 			WriteEvidence:          *write,
 		})
@@ -320,6 +322,27 @@ func run(args []string) int {
 			RunnerID:      *runnerID,
 			RunnerVersion: *runnerVersion,
 			Signature:     *signature,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
+	case "opfs-proof":
+		fs := flag.NewFlagSet("opfs-proof", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		reportPath := fs.String("report", "", "browser OPFS runner report JSON")
+		runnerID := fs.String("runner-id", "", "browser runner identifier")
+		runnerVersion := fs.String("runner-version", "", "browser runner version")
+		stateRoot := fs.String("state-root", "", "optional OPFS proof state root; default .qhtml/opfs_proofs")
+		write := fs.Bool("write", false, "write OPFS proof receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.OPFSProof(qhtml.OPFSProofRequest{
+			ProjectRoot:   *projectRoot,
+			ReportPath:    *reportPath,
+			RunnerID:      *runnerID,
+			RunnerVersion: *runnerVersion,
 			StateRoot:     *stateRoot,
 			WriteEvidence: *write,
 		})
@@ -382,8 +405,9 @@ func usage() {
   qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
   qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
   qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]
+  qhtml opfs-proof --report <opfs_report.json> --runner-id <id> --runner-version <version> [--write]
   qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]
-  qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]
+  qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--opfs-proof <opfs_receipt>] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.

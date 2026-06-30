@@ -56,6 +56,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "html_projection_renderer", Status: "implemented", Reason: "render-folder creates disposable HTML projections from folder lanes and writes render receipts"},
 		{ID: "media_slot_resolver", Status: "implemented", Reason: "resolve-media seals lane-relative media slots, asset digests, size budget, and optional export copies"},
 		{ID: "adapter_conformance_matrix", Status: "implemented", Reason: "adapter-conformance emits portable path, Windows, POSIX, and browser OPFS lane checks"},
+		{ID: "browser_opfs_runner_proof", Status: "implemented", Reason: "opfs-proof validates browser OPFS availability, quota, file handles, and roundtrip evidence"},
 	}
 	gaps := []ProductItem{}
 	potential := []ProductItem{
@@ -96,15 +97,15 @@ func Status(req ProductStatusRequest) ProductStatus {
 			"qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--write]",
 			"qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--write]",
 			"qhtml runner-proof --report <runner_report.json> --runner-id <id> --runner-version <version> --signature <signature> [--write]",
+			"qhtml opfs-proof --report <opfs_report.json> --runner-id <id> --runner-version <version> [--write]",
 			"qhtml verify-runner-proof --proof <runner_proof_receipt> --public-key <ed25519_public_key> [--write]",
-			"qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--write]",
+			"qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--runner-proof <proof_receipt>] [--runner-verification <verification_receipt>] [--opfs-proof <opfs_receipt>] [--write]",
 		},
 		Implemented:    implemented,
 		Gaps:           gaps,
 		Potential:      potential,
 		PotentialScore: 82,
 		NextMilestones: []string{
-			"add platform-specific browser OPFS runner",
 			"add chunked hashing for very large media sets",
 		},
 		Percent:    percent,
