@@ -91,6 +91,25 @@ func run(args []string) int {
 			WriteEvidence:     *write,
 		})
 		return encode(result, err)
+	case "layout-witness":
+		fs := flag.NewFlagSet("layout-witness", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		exportPath := fs.String("export", "", "rendered/exported HTML file")
+		reportPath := fs.String("report", "", "browser layout report JSON")
+		stateRoot := fs.String("state-root", "", "optional layout witness state root; default .qhtml/layout_witnesses")
+		write := fs.Bool("write", false, "write layout witness receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.LayoutWitness(qhtml.LayoutWitnessRequest{
+			ProjectRoot:   *projectRoot,
+			ExportPath:    *exportPath,
+			ReportPath:    *reportPath,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -121,6 +140,7 @@ func usage() {
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
   qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
+  qhtml layout-witness --export <rendered.html> --report <layout-report.json> [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.

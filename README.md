@@ -41,6 +41,7 @@ qhtml status
 qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
 qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
 qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
+qhtml layout-witness --export <rendered.html> --report <layout-report.json> [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -58,6 +59,7 @@ State is stored under:
 .qhtml/managed/<lane-key>/receipts/*.qhtml_refresh.json
 .qhtml/witnesses/<render-key>/*.qhtml_witness.json
 .qhtml/visual_witnesses/<visual-key>/*.qhtml_visual_witness.json
+.qhtml/layout_witnesses/<layout-key>/*.qhtml_layout_witness.json
 ```
 
 The manager ignores its own runtime artifacts while hashing a lane:
@@ -95,13 +97,13 @@ Implemented:
 - symlink target hashing without following links
 - render export witness receipts binding lane/source/export digests
 - browser visual artifact witness receipts for nonblank export, zero console errors, and optional screenshot digest
+- browser layout witness receipts for viewport nonblank, console, and overflow evidence
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
 
 - HTML projection renderer
 - media slot resolver
-- automated responsive/overflow browser layout witness
 - Vorq render receipt
 - target/tombstone/rollback commands
 - bidirectional sync from export changes back to lane patch proposals
@@ -117,11 +119,12 @@ Not complete:
 - Blank export: `visual-witness` rejects HTML without visible text.
 - Console errors: `visual-witness` rejects console reports containing error entries.
 - Empty screenshot: `visual-witness` rejects zero-byte screenshot artifacts.
+- Layout report drift: `layout-witness` rejects blank viewports, console errors, overflow, and invalid viewport dimensions.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Automated responsive/overflow layout checks and Vorq receipts are still outside the standalone seed.
+- Vorq receipts and target/tombstone/rollback are still outside the standalone seed.
 
 ## Potential Assessment
 

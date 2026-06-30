@@ -324,6 +324,65 @@ func TestVisualWitnessRejectsBlankExportAndConsoleErrors(t *testing.T) {
 	}
 }
 
+func TestLayoutWitnessWritesReceipt(t *testing.T) {
+	projectRoot := t.TempDir()
+	exportPath := filepath.Join(projectRoot, "export.html")
+	reportPath := filepath.Join(projectRoot, "layout.json")
+	if err := os.WriteFile(exportPath, []byte("<main>Visible content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	report := `{"viewports":[{"name":"desktop","width":1440,"height":900,"nonblank":true,"console_errors":0,"overflow_x":0,"overflow_y":0},{"name":"mobile","width":390,"height":844,"nonblank":true,"console_errors":0,"overflow_x":0,"overflow_y":0}]}`
+	if err := os.WriteFile(reportPath, []byte(report), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LayoutWitness(LayoutWitnessRequest{
+		ProjectRoot:   projectRoot,
+		ExportPath:    exportPath,
+		ReportPath:    reportPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 1, 3, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "layout_witness" || got.ViewportCount != 2 || got.LayoutDigest == "" {
+		t.Fatalf("unexpected layout witness: %#v", got)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLayoutWitnessRejectsBadViewportReports(t *testing.T) {
+	projectRoot := t.TempDir()
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>Visible content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]string{
+		"blank":    `{"viewports":[{"name":"mobile","width":390,"height":844,"nonblank":false,"console_errors":0,"overflow_x":0,"overflow_y":0}]}`,
+		"console":  `{"viewports":[{"name":"desktop","width":1440,"height":900,"nonblank":true,"console_errors":1,"overflow_x":0,"overflow_y":0}]}`,
+		"overflow": `{"viewports":[{"name":"desktop","width":1440,"height":900,"nonblank":true,"console_errors":0,"overflow_x":1,"overflow_y":0}]}`,
+		"invalid":  `{"viewports":[{"name":"desktop","width":0,"height":900,"nonblank":true,"console_errors":0,"overflow_x":0,"overflow_y":0}]}`,
+	}
+	for name, report := range cases {
+		t.Run(name, func(t *testing.T) {
+			reportPath := filepath.Join(projectRoot, name+".json")
+			if err := os.WriteFile(reportPath, []byte(report), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := LayoutWitness(LayoutWitnessRequest{
+				ProjectRoot: projectRoot,
+				ExportPath:  exportPath,
+				ReportPath:  reportPath,
+			})
+			if err == nil {
+				t.Fatalf("bad layout report %s should be rejected", name)
+			}
+		})
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()
