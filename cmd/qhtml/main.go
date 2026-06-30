@@ -72,6 +72,30 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "chunk-media":
+		fs := flag.NewFlagSet("chunk-media", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		slotRoot := fs.String("slot-root", "", "lane-relative media slot root; default 04")
+		stateRoot := fs.String("state-root", "", "optional chunk media state root; default .qhtml/chunk_media")
+		chunkBytes := fs.Int64("chunk-bytes", 0, "chunk bytes; default 1MiB, minimum 4096")
+		write := fs.Bool("write", false, "write chunk media receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		if *laneRoot == "" && fs.NArg() > 0 {
+			*laneRoot = fs.Arg(0)
+		}
+		result, err := qhtml.ChunkMedia(qhtml.ChunkMediaRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			SlotRoot:      *slotRoot,
+			StateRoot:     *stateRoot,
+			ChunkBytes:    *chunkBytes,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "adapter-conformance":
 		fs := flag.NewFlagSet("adapter-conformance", flag.ContinueOnError)
 		fs.SetOutput(os.Stderr)
@@ -395,6 +419,7 @@ func usage() {
   qhtml status
   qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
   qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]
+  qhtml chunk-media --lane-root <lane_root> [--slot-root 04] [--chunk-bytes <bytes>] [--write]
   qhtml adapter-conformance --lane-root <lane_root> [--write]
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]

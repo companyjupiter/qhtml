@@ -390,6 +390,56 @@ func TestResolveMediaRejectsUnsafeAndOversizeInputs(t *testing.T) {
 	}
 }
 
+func TestChunkMediaWritesStreamingChunkReceipt(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	assetPath := filepath.Join(laneRoot, "04", "hero", "video.mp4")
+	if err := os.MkdirAll(filepath.Dir(assetPath), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, 9000)
+	for i := range data {
+		data[i] = byte(i % 251)
+	}
+	if err := os.WriteFile(assetPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ChunkMedia(ChunkMediaRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		ChunkBytes:    4096,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 10, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "chunk_media" || got.AssetCount != 1 || got.ChunkDigest == "" || got.ReceiptPath == "" {
+		t.Fatalf("unexpected chunk media receipt: %#v", got)
+	}
+	if got.Assets[0].ChunkCount != 3 || len(got.Assets[0].Chunks) != 3 {
+		t.Fatalf("expected 3 chunks, got %#v", got.Assets[0])
+	}
+	if got.Assets[0].Chunks[0].Offset != 0 || got.Assets[0].Chunks[1].Offset != 4096 || got.Assets[0].Chunks[2].Offset != 8192 {
+		t.Fatalf("unexpected chunk offsets: %#v", got.Assets[0].Chunks)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChunkMediaRejectsTooSmallChunk(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	_, err := ChunkMedia(ChunkMediaRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ChunkBytes:  1024,
+		ObservedAt:  time.Date(2026, 6, 30, 10, 1, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "at least 4096") {
+		t.Fatalf("too-small chunk should be rejected, got %v", err)
+	}
+}
+
 func TestAdapterConformanceWritesReceipt(t *testing.T) {
 	projectRoot, laneRoot, _ := setupManagedProject(t)
 	got, err := AdapterConformance(AdapterConformanceRequest{

@@ -55,6 +55,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "runner_public_key_verification", Status: "implemented", Reason: "verify-runner-proof validates ed25519 runner signatures and emits verification receipts"},
 		{ID: "html_projection_renderer", Status: "implemented", Reason: "render-folder creates disposable HTML projections from folder lanes and writes render receipts"},
 		{ID: "media_slot_resolver", Status: "implemented", Reason: "resolve-media seals lane-relative media slots, asset digests, size budget, and optional export copies"},
+		{ID: "large_media_chunked_hashing", Status: "implemented", Reason: "chunk-media emits streaming chunk digests for large media assets"},
 		{ID: "adapter_conformance_matrix", Status: "implemented", Reason: "adapter-conformance emits portable path, Windows, POSIX, and browser OPFS lane checks"},
 		{ID: "browser_opfs_runner_proof", Status: "implemented", Reason: "opfs-proof validates browser OPFS availability, quota, file handles, and roundtrip evidence"},
 	}
@@ -87,6 +88,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 			"qhtml status",
 			"qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]",
 			"qhtml resolve-media --lane-root <lane_root> [--slot-root 04] [--out-dir <media_export_dir>] [--max-bytes <bytes>] [--write]",
+			"qhtml chunk-media --lane-root <lane_root> [--slot-root 04] [--chunk-bytes <bytes>] [--write]",
 			"qhtml adapter-conformance --lane-root <lane_root> [--write]",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",
 			"qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]",
@@ -106,7 +108,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		Potential:      potential,
 		PotentialScore: 82,
 		NextMilestones: []string{
-			"add chunked hashing for very large media sets",
+			"add official browser runner package",
 		},
 		Percent:    percent,
 		Policy:     "folder_lane_is_source_truth; html_is_projection; go_digest_refresh_is_correctness_layer",
