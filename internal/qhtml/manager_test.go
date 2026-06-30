@@ -530,7 +530,11 @@ func TestImportProposalRejectsBlankExportAndEscapingTarget(t *testing.T) {
 func TestSealCombinesWitnessAndImportProposalReceipts(t *testing.T) {
 	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
 	exportPath := filepath.Join(projectRoot, "export.html")
+	reportPath := filepath.Join(projectRoot, "runner-report.json")
 	if err := os.WriteFile(exportPath, []byte("<main>Sealed export content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(reportPath, []byte(`{"runner":"playwright","ok":true}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	witness, err := Witness(WitnessRequest{
@@ -556,12 +560,25 @@ func TestSealCombinesWitnessAndImportProposalReceipts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	proof, err := RunnerProof(RunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-local",
+		RunnerVersion: "1.0.0",
+		Signature:     "signature-claim-1234567890",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 4, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	seal, err := Seal(SealRequest{
 		ProjectRoot:        projectRoot,
 		WitnessPath:        witness.WitnessPath,
 		ImportProposalPath: proposal.ReceiptPath,
+		RunnerProofPath:    proof.ReceiptPath,
 		WriteEvidence:      true,
-		ObservedAt:         time.Date(2026, 6, 30, 4, 2, 0, 0, time.UTC),
+		ObservedAt:         time.Date(2026, 6, 30, 4, 3, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -569,7 +586,7 @@ func TestSealCombinesWitnessAndImportProposalReceipts(t *testing.T) {
 	if seal.Status != "vorq_seal" || !seal.PromotionReady || seal.SealDigest == "" {
 		t.Fatalf("unexpected seal receipt: %#v", seal)
 	}
-	if seal.InputDigests["witness"] == "" || seal.InputDigests["import_proposal"] == "" {
+	if seal.InputDigests["witness"] == "" || seal.InputDigests["import_proposal"] == "" || seal.InputDigests["runner_proof"] == "" {
 		t.Fatalf("seal did not bind input digests: %#v", seal)
 	}
 	if _, err := os.Stat(seal.ReceiptPath); err != nil {
@@ -593,6 +610,43 @@ func TestSealRejectsMissingWitnessAndWrongSchema(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "wrong receipt schema") {
 		t.Fatalf("wrong witness schema should be rejected, got %v", err)
+	}
+}
+
+func TestRunnerProofWritesReceiptAndRejectsShortSignature(t *testing.T) {
+	projectRoot := t.TempDir()
+	reportPath := filepath.Join(projectRoot, "runner-report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"runner":"playwright","ok":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := RunnerProof(RunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-local",
+		RunnerVersion: "1.0.0",
+		Signature:     "signature-claim-1234567890",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 4, 4, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "runner_proof" || got.ReportDigest == "" || got.ProofDigest == "" {
+		t.Fatalf("unexpected runner proof: %#v", got)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	_, err = RunnerProof(RunnerProofRequest{
+		ProjectRoot:   projectRoot,
+		ReportPath:    reportPath,
+		RunnerID:      "playwright-local",
+		RunnerVersion: "1.0.0",
+		Signature:     "short",
+		ObservedAt:    time.Date(2026, 6, 30, 4, 5, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "at least 16") {
+		t.Fatalf("short signature should be rejected, got %v", err)
 	}
 }
 

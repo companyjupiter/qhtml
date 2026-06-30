@@ -18,6 +18,7 @@ type SealRequest struct {
 	ImportProposalPath string
 	VisualWitnessPath  string
 	LayoutWitnessPath  string
+	RunnerProofPath    string
 	StateRoot          string
 	WriteEvidence      bool
 	ObservedAt         time.Time
@@ -127,6 +128,7 @@ func sealInputs(projectRoot string, req SealRequest) (map[string]string, error) 
 		{"import_proposal", req.ImportProposalPath, ImportProposalSchemaVersion, "import_proposal"},
 		{"visual_witness", req.VisualWitnessPath, VisualWitnessSchemaVersion, "visual_witness"},
 		{"layout_witness", req.LayoutWitnessPath, LayoutWitnessSchemaVersion, "layout_witness"},
+		{"runner_proof", req.RunnerProofPath, RunnerProofSchemaVersion, "runner_proof"},
 	}
 	for _, item := range optional {
 		if strings.TrimSpace(item.path) == "" {
