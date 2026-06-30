@@ -527,6 +527,75 @@ func TestImportProposalRejectsBlankExportAndEscapingTarget(t *testing.T) {
 	}
 }
 
+func TestSealCombinesWitnessAndImportProposalReceipts(t *testing.T) {
+	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
+	exportPath := filepath.Join(projectRoot, "export.html")
+	if err := os.WriteFile(exportPath, []byte("<main>Sealed export content</main>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	witness, err := Witness(WitnessRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		SourcePath:    sourcePath,
+		ExportPath:    exportPath,
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 4, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := ImportProposal(ImportProposalRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		ExportPath:    exportPath,
+		TargetPath:    "02/r0/c0.txt",
+		Kind:          "cell",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 4, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seal, err := Seal(SealRequest{
+		ProjectRoot:        projectRoot,
+		WitnessPath:        witness.WitnessPath,
+		ImportProposalPath: proposal.ReceiptPath,
+		WriteEvidence:      true,
+		ObservedAt:         time.Date(2026, 6, 30, 4, 2, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seal.Status != "vorq_seal" || !seal.PromotionReady || seal.SealDigest == "" {
+		t.Fatalf("unexpected seal receipt: %#v", seal)
+	}
+	if seal.InputDigests["witness"] == "" || seal.InputDigests["import_proposal"] == "" {
+		t.Fatalf("seal did not bind input digests: %#v", seal)
+	}
+	if _, err := os.Stat(seal.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSealRejectsMissingWitnessAndWrongSchema(t *testing.T) {
+	projectRoot := t.TempDir()
+	if _, err := Seal(SealRequest{ProjectRoot: projectRoot}); err == nil || !strings.Contains(err.Error(), "--witness required") {
+		t.Fatalf("missing witness should be rejected, got %v", err)
+	}
+	badPath := filepath.Join(projectRoot, "bad.json")
+	if err := os.WriteFile(badPath, []byte(`{"schema_version":"qhtml.import_proposal.v1","status":"import_proposal","product_id":"qhtml"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Seal(SealRequest{
+		ProjectRoot: projectRoot,
+		WitnessPath: badPath,
+		ObservedAt:  time.Date(2026, 6, 30, 4, 3, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "wrong receipt schema") {
+		t.Fatalf("wrong witness schema should be rejected, got %v", err)
+	}
+}
+
 func setupManagedProject(t *testing.T) (string, string, string) {
 	t.Helper()
 	projectRoot := t.TempDir()

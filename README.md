@@ -46,6 +46,7 @@ qhtml target --lane-root <lane_root> --path <lane_relative_target> [--kind cell|
 qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]
 qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
 qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
+qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--write]
 ```
 
 `refresh` computes a stable digest over the lane folder and optional source file, compares it with the previous state, and reports:
@@ -68,6 +69,7 @@ State is stored under:
 .qhtml/targets/<target-key>/tombstones/*.qhtml_tombstone.json
 .qhtml/targets/<target-key>/rollbacks/*.qhtml_rollback.json
 .qhtml/import_proposals/<proposal-key>/*.qhtml_import_proposal.json
+.qhtml/seals/<seal-key>/*.qhtml_seal.json
 ```
 
 The manager ignores its own runtime artifacts while hashing a lane:
@@ -108,13 +110,13 @@ Implemented:
 - browser layout witness receipts for viewport nonblank, console, and overflow evidence
 - target/tombstone/rollback receipts for lane-relative cell/media/style/event addresses
 - import proposal receipts that turn export changes into lane patch proposals without overwriting source folders
+- Vorq-compatible seal receipts that bind witness/import/layout/visual receipts for promotion
 - tests for initial state, no-change state, source change, and lane change
 
 Not complete:
 
 - HTML projection renderer
 - media slot resolver
-- Vorq render receipt
 
 ## Blind Spots Already Simulated
 
@@ -132,11 +134,12 @@ Not complete:
 - Destructive targeting: `tombstone` and `rollback` write receipts/proposals first and do not mutate the lane without an external promotion gate.
 - Import mutation: `import-proposal` writes a proposal receipt and leaves the lane target digest unchanged.
 - Import escape: `import-proposal` rejects target paths that escape the lane root.
+- Seal integrity: `seal` rejects missing render witness receipts and wrong receipt schemas.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Vorq receipts, signed browser runner proof, and media resolver are still outside the standalone seed.
+- Signed browser runner proof and media resolver are still outside the standalone seed.
 
 ## Potential Assessment
 
@@ -159,7 +162,7 @@ That is not a maturity score. It means the core product thesis is strong, while 
 
 1. Extract standalone `render-folder`.
 2. Add automated browser layout witness.
-3. Add Vorq-compatible render receipt.
+3. Add signed browser runner proof.
 4. Add signed browser runner proof.
 5. Add media size budgets and chunked hashing.
 

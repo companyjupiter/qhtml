@@ -204,6 +204,29 @@ func run(args []string) int {
 			WriteEvidence: *write,
 		})
 		return encode(result, err)
+	case "seal":
+		fs := flag.NewFlagSet("seal", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		witnessPath := fs.String("witness", "", "render witness receipt path")
+		importProposalPath := fs.String("import-proposal", "", "optional import proposal receipt path")
+		visualWitnessPath := fs.String("visual-witness", "", "optional visual witness receipt path")
+		layoutWitnessPath := fs.String("layout-witness", "", "optional layout witness receipt path")
+		stateRoot := fs.String("state-root", "", "optional seal state root; default .qhtml/seals")
+		write := fs.Bool("write", false, "write seal receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		result, err := qhtml.Seal(qhtml.SealRequest{
+			ProjectRoot:        *projectRoot,
+			WitnessPath:        *witnessPath,
+			ImportProposalPath: *importProposalPath,
+			VisualWitnessPath:  *visualWitnessPath,
+			LayoutWitnessPath:  *layoutWitnessPath,
+			StateRoot:          *stateRoot,
+			WriteEvidence:      *write,
+		})
+		return encode(result, err)
 	case "help", "-h", "--help":
 		usage()
 		return 0
@@ -239,6 +262,7 @@ func usage() {
   qhtml tombstone --lane-root <lane_root> --path <lane_relative_target> [--reason <why>] [--write]
   qhtml rollback --lane-root <lane_root> --path <lane_relative_target> --to-digest <digest> [--source-receipt <receipt>] [--write]
   qhtml import-proposal --lane-root <lane_root> --export <rendered.html> [--path <lane_relative_target>] [--source-receipt <receipt>] [--write]
+  qhtml seal --witness <witness_receipt> [--import-proposal <proposal_receipt>] [--visual-witness <visual_receipt>] [--layout-witness <layout_receipt>] [--write]
 
 Options:
   --project <root>      Project root. Defaults to current working directory.
