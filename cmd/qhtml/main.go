@@ -22,6 +22,30 @@ func run(args []string) int {
 	switch command {
 	case "status", "product", "readiness":
 		return encode(qhtml.Status(qhtml.ProductStatusRequest{}), nil)
+	case "render-folder":
+		fs := flag.NewFlagSet("render-folder", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		projectRoot := fs.String("project", "", "project root; default current working directory")
+		laneRoot := fs.String("lane-root", "", "QHTML lane root")
+		outPath := fs.String("out", "", "rendered HTML output path")
+		title := fs.String("title", "", "optional HTML title")
+		stateRoot := fs.String("state-root", "", "optional render state root; default .qhtml/renders")
+		write := fs.Bool("write", false, "write HTML projection and render receipt")
+		if err := fs.Parse(args); err != nil {
+			return 2
+		}
+		if *laneRoot == "" && fs.NArg() > 0 {
+			*laneRoot = fs.Arg(0)
+		}
+		result, err := qhtml.RenderFolder(qhtml.RenderFolderRequest{
+			ProjectRoot:   *projectRoot,
+			LaneRoot:      *laneRoot,
+			ExportPath:    *outPath,
+			Title:         *title,
+			StateRoot:     *stateRoot,
+			WriteEvidence: *write,
+		})
+		return encode(result, err)
 	case "refresh", "manage", "watch":
 		fs := flag.NewFlagSet("refresh", flag.ContinueOnError)
 		fs.SetOutput(os.Stderr)
@@ -300,6 +324,7 @@ func encode(value any, err error) int {
 func usage() {
 	_, _ = fmt.Fprint(os.Stderr, `Usage:
   qhtml status
+  qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
   qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
   qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
   qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]

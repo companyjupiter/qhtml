@@ -38,6 +38,7 @@ go run ./cmd/qhtml status
 
 ```powershell
 qhtml status
+qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]
 qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]
 qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]
 qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--viewport desktop|mobile] [--write]
@@ -64,6 +65,7 @@ State is stored under:
 ```text
 .qhtml/managed/<lane-key>/state.json
 .qhtml/managed/<lane-key>/receipts/*.qhtml_refresh.json
+.qhtml/renders/<render-key>/*.qhtml_render_folder.json
 .qhtml/witnesses/<render-key>/*.qhtml_witness.json
 .qhtml/visual_witnesses/<visual-key>/*.qhtml_visual_witness.json
 .qhtml/layout_witnesses/<layout-key>/*.qhtml_layout_witness.json
@@ -102,6 +104,7 @@ NeuronFS can embed QHTML, but QHTML must be usable without NeuronFS.
 Implemented:
 
 - Go-native lane/source digest manager
+- standalone `render-folder` HTML projection renderer
 - HTML fullscan reduction through digest-first refresh
 - seed precision targeting surface through stable folder lane addresses
 - JSON status and refresh CLI
@@ -121,7 +124,6 @@ Implemented:
 
 Not complete:
 
-- HTML projection renderer
 - media slot resolver
 
 ## Blind Spots Already Simulated
@@ -143,11 +145,12 @@ Not complete:
 - Seal integrity: `seal` rejects missing render witness receipts and wrong receipt schemas.
 - Runner proof integrity: `runner-proof` rejects missing runner identity/version, empty reports, and short signatures.
 - Runner proof verification: `verify-runner-proof` rejects bad public keys, wrong proof schemas, and invalid signatures.
+- Render projection safety: `render-folder` escapes lane file content, writes receipts, and rejects exports inside the lane unless they are under `dist/`.
 
 Remaining blind spots:
 
 - Large binary media folders need a future size budget and chunked hashing.
-- Media resolver and a first-class renderer are still outside the standalone seed.
+- Media resolver is still outside the standalone seed.
 
 ## Potential Assessment
 
@@ -168,11 +171,9 @@ Current potential score from `qhtml status`: `82/100`.
 
 That is not a maturity score. It means the core product thesis is strong, while the implementation is still a seed. The next milestones are:
 
-1. Extract standalone `render-folder`.
-2. Add automated browser layout witness.
-3. Add standalone render-folder.
-4. Add media size budgets and chunked hashing.
-5. Add media size budgets and chunked hashing.
+1. Add standalone media slot resolver.
+2. Add media size budgets and chunked hashing.
+3. Add adapter conformance matrix.
 
 ## Product Rule
 

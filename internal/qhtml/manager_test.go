@@ -258,6 +258,63 @@ func TestWitnessWritesRenderReceipt(t *testing.T) {
 	}
 }
 
+func TestRenderFolderWritesEscapedHTMLAndReceipt(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	if err := os.WriteFile(filepath.Join(laneRoot, "02", "r0", "xss.txt"), []byte("<script>alert(1)</script>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	exportPath := filepath.Join(laneRoot, "dist", "qhtml.html")
+	got, err := RenderFolder(RenderFolderRequest{
+		ProjectRoot:   projectRoot,
+		LaneRoot:      laneRoot,
+		ExportPath:    exportPath,
+		Title:         "QHTML Test",
+		WriteEvidence: true,
+		ObservedAt:    time.Date(2026, 6, 30, 6, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "rendered_folder" || got.ExportDigest == "" || got.RenderDigest == "" || got.ReceiptPath == "" {
+		t.Fatalf("unexpected render receipt: %#v", got)
+	}
+	data, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(data)
+	if strings.Contains(rendered, "<script>alert(1)</script>") || !strings.Contains(rendered, "&lt;script&gt;alert(1)&lt;/script&gt;") {
+		t.Fatalf("rendered html did not escape lane content: %s", rendered)
+	}
+	if _, err := os.Stat(got.ReceiptPath); err != nil {
+		t.Fatal(err)
+	}
+	second, err := Manage(ManageRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ObservedAt:  time.Date(2026, 6, 30, 6, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.LaneDigest != got.LaneDigest {
+		t.Fatalf("dist export self-contaminated lane digest: render=%s manage=%s", got.LaneDigest, second.LaneDigest)
+	}
+}
+
+func TestRenderFolderRejectsExportInsideLaneOutsideDist(t *testing.T) {
+	projectRoot, laneRoot, _ := setupManagedProject(t)
+	_, err := RenderFolder(RenderFolderRequest{
+		ProjectRoot: projectRoot,
+		LaneRoot:    laneRoot,
+		ExportPath:  filepath.Join(laneRoot, "render.html"),
+		ObservedAt:  time.Date(2026, 6, 30, 6, 2, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "dist/") {
+		t.Fatalf("unsafe lane export should be rejected, got %v", err)
+	}
+}
+
 func TestWitnessRejectsMissingExport(t *testing.T) {
 	projectRoot, laneRoot, sourcePath := setupManagedProject(t)
 	_, err := Witness(WitnessRequest{

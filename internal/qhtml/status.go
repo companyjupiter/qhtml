@@ -53,9 +53,9 @@ func Status(req ProductStatusRequest) ProductStatus {
 		{ID: "vorq_render_witness", Status: "implemented", Reason: "seal combines witness/import/layout/visual receipts into a final promotion receipt"},
 		{ID: "signed_browser_runner_proof", Status: "implemented", Reason: "runner-proof binds runner identity, version, report digest, and signature claim; seal can include it"},
 		{ID: "runner_public_key_verification", Status: "implemented", Reason: "verify-runner-proof validates ed25519 runner signatures and emits verification receipts"},
+		{ID: "html_projection_renderer", Status: "implemented", Reason: "render-folder creates disposable HTML projections from folder lanes and writes render receipts"},
 	}
 	gaps := []ProductItem{
-		{ID: "html_projection_renderer", Status: "missing", Reason: "standalone renderer is not yet extracted"},
 		{ID: "media_slot_resolver", Status: "missing", Reason: "media slot language is specified but not implemented in standalone"},
 	}
 	potential := []ProductItem{
@@ -84,6 +84,7 @@ func Status(req ProductStatusRequest) ProductStatus {
 		},
 		RuntimeCommands: []string{
 			"qhtml status",
+			"qhtml render-folder --lane-root <lane_root> --out <rendered.html> [--title <title>] [--write]",
 			"qhtml refresh --lane-root <lane_root> [--source <original.html>] [--write]",
 			"qhtml witness --lane-root <lane_root> --export <rendered.html> [--source <original.html>] [--write]",
 			"qhtml visual-witness --export <rendered.html> [--console-report <console.json>] [--screenshot <screenshot.png>] [--write]",
@@ -101,7 +102,6 @@ func Status(req ProductStatusRequest) ProductStatus {
 		Potential:      potential,
 		PotentialScore: 82,
 		NextMilestones: []string{
-			"extract standalone render-folder",
 			"add standalone media slot resolver",
 			"add cross-platform adapter conformance matrix",
 		},
